@@ -118,38 +118,71 @@ Each iteration builds on what the previous one discovered. By iteration 3, the r
 
 ```mermaid
 flowchart LR
-    subgraph COMMANDER [COMMANDER]
-        C[/redblue\nSession orchestrator]
+    subgraph COMMANDER ["COMMANDER"]
+        C["redblue — Session orchestrator"]
     end
 
-    subgraph SIM ["Simulation — ~/.redblue/sim/round_id/"]
-        SF[Sandboxed\ncopy of codebase]
+    subgraph SIM ["Simulation · sim/round_id/"]
+        SF["Sandboxed copy of codebase"]
     end
 
-    subgraph RED ["🔴 Red Team — reads sim, never writes"]
-        R1[Security\nAgent]
-        R2[Functional QA\nAgent]
-        R3[UI/UX\nAgent]
-        ROV[Overseer\nindependent re-scan]
+    subgraph RED ["Red Team — reads sim, never writes"]
+        R1["Security Agent"]
+        R2["Agent Testing Agent"]
+        R3["Skill Testing Agent"]
+        R4["Infra Agent"]
+        R5["Tech Stack Agent"]
+        R6["Eval Agent"]
+        R7["Functional QA Agent"]
+        R8["UI/UX Agent"]
+        R9["Product Agent"]
+        ROV["Overseer — independent re-scan"]
     end
 
-    subgraph BLUE ["🔵 Blue Team — writes to sim only"]
-        B1[Fix Agent 1\nFile cluster A]
-        B2[Fix Agent 2\nFile cluster B]
-        BN[Fix Agent N\nFile cluster ...]
+    subgraph LEARN ["Real-Time Learning"]
+        LP["live-patterns.json"]
     end
 
-    subgraph LEARN ["🧠 Real-Time Learning"]
-        LP[live-patterns.json\nPattern buffer]
+    subgraph BLUE ["Blue Team — writes to sim only"]
+        B1["Fix Agent 1 — File cluster A"]
+        B2["Fix Agent 2 — File cluster B"]
+        BN["Fix Agent N — File cluster ..."]
     end
 
-    C -->|scan sim| R1 & R2 & R3 & ROV
-    R1 & R2 & R3 & ROV -->|findings| C
-    C -->|new patterns| LP
-    LP -->|injected into next scan| R1 & R2 & R3
-    C -->|propose fixes in sim| B1 & B2 & BN
-    B1 & B2 & BN -->|proposals + changes| SF
-    SF -->|next iteration| R1
+    C -->|"scan sim"| R1
+    C -->|"scan sim"| R2
+    C -->|"scan sim"| R3
+    C -->|"scan sim"| R4
+    C -->|"scan sim"| R5
+    C -->|"scan sim"| R6
+    C -->|"scan sim"| R7
+    C -->|"scan sim"| R8
+    C -->|"scan sim"| R9
+    C -->|"scan sim"| ROV
+
+    R1 -->|"findings"| C
+    R2 -->|"findings"| C
+    R3 -->|"findings"| C
+    R4 -->|"findings"| C
+    R5 -->|"findings"| C
+    R6 -->|"findings"| C
+    R7 -->|"findings"| C
+    R8 -->|"findings"| C
+    R9 -->|"findings"| C
+    ROV -->|"findings"| C
+
+    C -->|"new patterns"| LP
+    LP -->|"injected into next scan"| C
+
+    C -->|"propose fixes"| B1
+    C -->|"propose fixes"| B2
+    C -->|"propose fixes"| BN
+
+    B1 -->|"changes"| SF
+    B2 -->|"changes"| SF
+    BN -->|"changes"| SF
+
+    SF -->|"next iteration"| C
 ```
 
 ### What "simulation" means technically
