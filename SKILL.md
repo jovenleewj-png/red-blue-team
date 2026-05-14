@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.2"
+version: "7.3"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -717,25 +717,26 @@ remaining        = findings from I(N-1) still present
 newly_introduced = findings in I(N) not in I(N-1)
 ```
 
-**Convergence check:**
+**Loop exit rule — time limit only, never early convergence:**
 ```
-open_critical_high = [f for f in remaining + newly_introduced
-                      if f.severity in ["critical", "high"]]
-
-if len(open_critical_high) == 0:
-    → CONVERGED → Phase 4
-
-else if time_elapsed >= time_limit:
-    → TIME LIMIT reached — but always complete the current iteration fully.
-      Do not stop mid-round. Finish Phase 2 and Phase 3 for the current
-      iteration so every open finding has a blue-team proposal and the
-      delta is consistent.  Then → Phase 4.
-      This ensures the final report has no half-applied fixes or
-      inconsistent state — loose ends are always tied up before handoff.
+if time_elapsed >= time_limit:
+    → TIME LIMIT reached.
+      Always complete the current iteration fully before stopping.
+      Never stop mid-round. Finish Phase 1 → learning → Phase 2 → Phase 3
+      so every open finding has a blue-team proposal and the delta is
+      consistent. Then → Phase 4.
 
 else:
-    → loop back to Phase 1
+    → loop back to Phase 1 regardless of severity counts.
+      When Critical/High are resolved, continue on Medium → Low → Info.
+      The loop runs for the full time limit every time — no early exit.
 ```
+
+**There is no convergence exit. The only exit is the time limit.**
+When Critical/High findings reach zero, the loop does NOT stop — it
+immediately starts the next iteration targeting Medium, then Low, then Info
+findings. This ensures every session extracts maximum value from the full
+time budget and the final report reflects the deepest possible scan.
 
 **Time limit is checked BEFORE starting a new iteration, not during one.**
 If the clock expires while an iteration is running, that iteration completes
@@ -1154,6 +1155,46 @@ Adjust agent count:
 **Rule:** Security controls that skip checks on error or missing configuration are fail-open — they grant access rather than deny it. All security gates must fail-closed.
 **Check for:** `try: screener_check() except: pass` — exception allows the call. `if token: verify() else: allow()` — no token allows the call. `if sig: check() else: allow()` — no signature allows the call.
 **Fix direction:** `except: continue` not `except: pass`. Missing required token → 403. Missing signature when token configured → 401.
+
+---
+
+### PATTERN: Stream Tool-Calls Not Persisted to DB
+**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** When an LLM streaming loop processes `tool_use` blocks, those tool calls and their results must be written to the conversation DB — not just text content. Omitting them means session reload loses all tool call structure.
+**Check for:** `stream()` or equivalent streaming functions that write only `role=assistant/user` text messages. Look for the tool_use block handler — does it call `db.add_message()` with `tool_call_id` and `tool_name`?
+**Fix direction:** In the `tool_use` block handler inside `stream()`, add: `self._db.add_message(session_id, "tool", result_str, tool_call_id=block.id, tool_name=block.name)` after the tool call completes.
+
+---
+
+### PATTERN: Async End-Session Not in Try/Finally
+**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Any session cleanup call (e.g. `end_session()`) inside a streaming loop must be in a `try/finally` block. If an exception fires before the cleanup call, the session record is left in a permanently incomplete state.
+**Check for:** `stream()` functions where `end_session()` or equivalent is called at the end of the try block but not in a finally. A timeout or tool error will skip it.
+**Fix direction:** Wrap the entire streaming block: `try: ... finally: self._db.end_session(session_id, end_reason)`. Set `end_reason` to `'timeout'` or `'error'` in except handlers.
+
+---
+
+### PATTERN: Proxy Endpoint Missing User Scoping
+**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Internal proxy/relay endpoints that forward requests to other services must scope forwarded calls to the authenticated user's identity. Without scoping, any authenticated user can proxy requests on behalf of any other user.
+**Check for:** Proxy routes that extract the user from the JWT for logging/auth but do not inject `user_id` or equivalent into the forwarded request or filter the response by it.
+**Fix direction:** Extract `user_id` from the verified JWT token; include it as a header or query param in every forwarded request; reject or filter responses that return cross-user data.
+
+---
+
+### PATTERN: Partial XML/HTML Tag Stripping
+**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Sanitizing only closing XML/HTML tags (e.g. `</tool_use>`) while leaving opening tags (e.g. `<tool_use>`) intact is incomplete — an attacker can still inject trust-bearing tags by crafting inputs without explicit closing tags.
+**Check for:** Sanitization functions that use `re.sub(r'</\w+>', ...)` without a corresponding `re.sub(r'<\w[^>]*>', ...)`. Also check for tag allowlists applied only at output, not at input.
+**Fix direction:** Strip (or escape) both opening and closing variants of any forbidden tag pattern. Prefer `html.escape()` on untrusted content before it enters any message that will be parsed as markup.
+
+---
+
+### PATTERN: Delegation Trust Cap Bypassable via LLM Input
+**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** The `_parent_trust` field used to cap sub-agent trust levels must be injected by the orchestrator, not accepted from the LLM's tool call input. If the LLM can supply `_parent_trust` in the tool args, it can self-elevate to any trust level.
+**Check for:** Any delegation tool dispatch where `_parent_trust` is read from the LLM-generated tool input dict rather than being overwritten by the orchestrator before dispatch.
+**Fix direction:** In the orchestrator dispatch site, always overwrite: `_dispatch_args["_parent_trust"] = str(getattr(self, '_trust_level', 'low'))` — this must happen AFTER copying block.input, not before, so the LLM-supplied value is clobbered.
 
 ---
 
