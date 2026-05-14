@@ -9,23 +9,24 @@ description: >
   injected into the next scan, so the loop compounds its own intelligence as it
   runs. After the session, a full report goes to the approval UI. Nothing lands
   in real code until the user decides.
-version: "6.0"
+version: "6.1"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
+x: https://x.com/jovenleeweijun
 license: CC BY-NC-ND 4.0
 publishable: true
 ---
 
-## ═══ FIRST-USE AGREEMENT GATE ═══
+## ═══ FIRST-USE NOTICE ═══
 
-**MANDATORY: Display this agreement before any other action. Do not skip.**
+**Display this notice on first use in each session. Proceeding constitutes acceptance.**
 
 ---
 
-> ## END-USER LICENCE AGREEMENT — RED-BLUE LOOP
+> ## TERMS OF USE — RED-BLUE LOOP
 > **© 2026 Joven Lee Wei Jun ("the Author"). All rights reserved.**
 >
-> By typing `I AGREE`, you enter a legally binding agreement. If you do not agree, do not use this skill.
+> **By using this skill you agree to the following terms.**
 >
 > **1. GRANT** — Personal, non-exclusive, non-transferable licence for your own work.
 > **2. ATTRIBUTION (MANDATORY)** — Any output shared with third parties must credit: *"Quality audit powered by Red-Blue Loop by Joven Lee."*
@@ -33,23 +34,23 @@ publishable: true
 > **4. NO WARRANTY** — Not a substitute for professional security or QA assessment.
 > **5. ENFORCEMENT** — Breach revokes your licence. Enforceable in SG, EU, UK, US, MY.
 >
-> **Type `I AGREE` to accept and proceed.**
+> *Continuing to use this skill constitutes your digital acceptance of these terms.*
+> *Full terms: see [TERMS.md](TERMS.md)*
 
 ---
 
-**Anything other than `I AGREE`:** "You must type `I AGREE` to proceed."
-**On `I AGREE`:** "Accepted. Let's begin." → proceed to Phase 0.
-**Do not show this gate again once agreed in the current session.**
+Display notice → proceed immediately to Phase 0.
+**Do not show this notice again in the same session.**
 
 ---
 
 <!--
-© 2026 Joven Lee Wei Jun · https://www.linkedin.com/in/jovenleeweijun/
+© 2026 Joven Lee Wei Jun · https://www.linkedin.com/in/jovenleeweijun/ · https://x.com/jovenleeweijun
 CC BY-NC-ND 4.0 · https://creativecommons.org/licenses/by-nc-nd/4.0/
 -->
 
 # Red-Blue Loop
-### by Joven Lee · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)
+### by Joven Lee · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
 > © 2026 Joven Lee Wei Jun · CC BY-NC-ND 4.0 · Attribution required on all shared outputs.
 
 ---
@@ -451,10 +452,25 @@ newly_introduced = findings in I(N) not in I(N-1)
 open_critical_high = [f for f in remaining + newly_introduced
                       if f.severity in ["critical", "high"]]
 
-if len(open_critical_high) == 0  → CONVERGED → Phase 4
-elif time_elapsed >= time_limit  → TIME LIMIT → Phase 4
-else                             → loop back to Phase 1
+if len(open_critical_high) == 0:
+    → CONVERGED → Phase 4
+
+else if time_elapsed >= time_limit:
+    → TIME LIMIT reached — but always complete the current iteration fully.
+      Do not stop mid-round. Finish Phase 2 and Phase 3 for the current
+      iteration so every open finding has a blue-team proposal and the
+      delta is consistent.  Then → Phase 4.
+      This ensures the final report has no half-applied fixes or
+      inconsistent state — loose ends are always tied up before handoff.
+
+else:
+    → loop back to Phase 1
 ```
+
+**Time limit is checked BEFORE starting a new iteration, not during one.**
+If the clock expires while an iteration is running, that iteration completes
+in full (Phase 1 → real-time learning → Phase 2 → Phase 3 → delta).
+Only then does the loop exit to Phase 4.
 
 **Status update after each iteration:**
 ```
@@ -676,6 +692,7 @@ Adjust agent count:
 | 4.0 | User profile, NEXUS mode, auto-sync |
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
+| 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
 
 ---
 
@@ -749,5 +766,6 @@ Adjust agent count:
 
 ---
 
-**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)**
+**© 2026 Joven Lee Wei Jun**
+[linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
 *CC BY-NC-ND 4.0 · Attribution required on all outputs shared publicly.*

@@ -2,7 +2,7 @@
 
 **A continuous simulation loop that finds issues, proposes fixes, and re-validates — across security, functionality, and UX — before anything touches your real code.**
 
-> **by Joven Lee** · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)
+> **by Joven Lee** · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
 > © 2026 Joven Lee Wei Jun · Licensed CC BY-NC-ND 4.0
 
 ---
@@ -23,7 +23,7 @@ That's what Red-Blue Loop does — not just for security, but across three quali
 2. 🔵 **Blue team proposes fixes** in a sandboxed copy of your code — never your real files
 3. 🧠 **The skill learns in real-time** — patterns found in this iteration are immediately injected into the next scan
 4. 🔴 **Red team scans again** on the updated sandbox — did the fixes work? did they introduce new problems?
-5. 🔄 **Loop repeats** — until everything is resolved, or the time limit is up (default: 1 hour)
+5. 🔄 **Loop repeats** — until everything is resolved, or the time limit is up (default: 1 hour). When the hour runs out, the current iteration always finishes in full before stopping — no loose ends left mid-round
 6. 📋 **Full report** — complete picture: what was found, what was fixed in simulation, what still needs work
 7. ✅ **You decide** — review every item with a plain-English explanation, approve or reject each one
 8. 🚀 **Applied** — only approved changes land in your real code
@@ -298,4 +298,4 @@ contribute it back to EVOLVED PATTERNS via PR:
 
 Any output shared publicly must credit: *"Quality audit powered by Red-Blue Loop by Joven Lee Wei Jun."*
 
-**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)**
+**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)**

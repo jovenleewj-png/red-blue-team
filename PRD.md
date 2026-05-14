@@ -1,8 +1,8 @@
 # Product Requirements Document
 ## Red-Blue Loop — Autonomous Quality Simulation Skill
 
-**Author:** Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)
-**Version:** 6.0 · © 2026 Joven Lee Wei Jun
+**Author:** Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
+**Version:** 6.1 · © 2026 Joven Lee Wei Jun
 
 ---
 
@@ -157,7 +157,9 @@ flowchart TD
 ### Iteration delta
 - FR-23: After each re-scan, compute: resolved / remaining / newly-introduced
 - FR-24: Convergence condition: zero Critical/High in `remaining + newly_introduced`
-- FR-25: Loop exits on convergence OR time limit — whichever comes first
+- FR-25: Time limit is checked BEFORE starting a new iteration — never mid-iteration
+- FR-25b: When the time limit is reached, the current iteration always completes in full (Phase 1 → learning → Phase 2 → Phase 3 → delta) before exiting to Phase 4
+- FR-25c: Loop exits on convergence OR after the time-limit iteration completes — whichever comes first
 - FR-26: Record per-iteration delta in session state
 
 ### Blue team (simulation)
@@ -332,4 +334,4 @@ flowchart TD
 
 ---
 
-**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)**
+**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)**
