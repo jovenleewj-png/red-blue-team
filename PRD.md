@@ -1,8 +1,8 @@
 # Product Requirements Document
-## Red-Blue Loop — Autonomous Security Audit Skill
+## Red-Blue Loop — Autonomous Security Simulation Skill
 
 **Author:** Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)
-**Version:** 4.0 · © 2026 Joven Lee Wei Jun
+**Version:** 5.0 · © 2026 Joven Lee Wei Jun
 
 ---
 
@@ -10,111 +10,214 @@
 
 ### The pain
 
-Security is treated as a one-time gate or an afterthought. Most development teams:
-- Audit code only before a major release, missing issues that accumulate daily
-- Hire security consultants at high cost for point-in-time snapshots that age immediately
-- Receive vulnerability reports that are either too technical (developers can't act on them) or too vague (no concrete fix direction)
-- Fix vulnerabilities without verifying the fix actually resolves the root cause
-- Repeat the same classes of vulnerabilities across projects because lessons are never systematised
+Development teams ship code faster than they can audit it. Security is treated as a gate — one scan before a major release — not a continuous discipline. The result:
 
-### The gap
+- Vulnerabilities accumulate silently between releases
+- Security tools find problems but don't propose solutions
+- Proposed fixes are applied to production without validating that they work or checking whether they introduce new problems
+- The same vulnerability classes repeat across projects because fixes are never systematised into reusable knowledge
 
-AI coding assistants generate code fast. Security tooling hasn't kept pace. Existing static analysis tools (Semgrep, Bandit, SonarQube) are rule-based — they don't explain, don't adapt, don't fix, and don't learn. They produce noise that developers learn to ignore.
+### The deeper problem: fixes that break things
+
+The hardest part of security remediation isn't finding the bug — it's verifying the fix. A naive patch for an injection vulnerability can introduce a path traversal. Removing a hardcoded secret can break a startup sequence if the env var is not set. Most teams apply fixes and hope for the best. There's no feedback loop.
 
 ### The opportunity
 
-LLM-powered agents can reason about code the way a security engineer does — understanding context, chaining vulnerabilities, explaining impact in plain English, and generating targeted fixes. The gap is that no one has built a structured, repeatable, approval-gated workflow that turns this capability into something safe to run continuously.
+A simulation environment changes the dynamic entirely. If fixes are proposed and validated in a sandbox — and the red team re-scans that sandbox — you get a closed feedback loop that converges on a correct solution before anything touches real code. The human only enters the loop at the end, reviewing a complete, already-validated set of changes.
 
 ---
 
 ## Goals
 
-1. **Continuous** — run automatically as a loop, not a one-time event
-2. **Comprehensive** — cover code security (STRIDE/OWASP), web UI security (XSS, auth bypass), and AI-specific risks (prompt injection, trust boundaries)
-3. **Approval-gated** — zero changes to production code without explicit human sign-off
-4. **Explainable** — every finding explained in plain English alongside its technical detail
-5. **Self-improving** — the skill learns from its own findings and gets better at catching them
-6. **Portable** — works with a single Claude Code instance; scales to multi-agent if available
+1. **Simulation-first** — blue team never touches real code during the loop
+2. **Convergence-driven** — loop continues until all Critical/High issues are resolved in simulation, not just found once
+3. **Full-session visibility** — at the end, the user sees the entire journey: what was found, what was tried, what worked, what remains
+4. **Approval-gated** — zero changes applied to real code without explicit per-item human decision
+5. **Explainable** — every item explained in plain English at approval time
+6. **Self-improving** — the skill learns from each session and gets better at both finding and fixing
+7. **Portable** — single Claude Code instance is sufficient; multi-agent scales up when available
 
 ---
 
 ## Non-Goals
 
-- **Not a replacement for human security engineers** on high-stakes production systems
-- **Not a penetration test** — no active exploitation, no network attacks, no real credential testing
-- **Not a compliance scanner** — doesn't produce SOC 2 / ISO 27001 reports
-- **Not a runtime monitor** — scans code at rest, not running systems
+- Not a penetration test (no active exploitation, no network attacks)
+- Not a compliance framework (no SOC 2 / ISO 27001 reports)
+- Not a runtime monitor (scans code at rest, not live systems)
+- Not a replacement for human security engineers on high-stakes infrastructure
 
 ---
 
 ## Users
 
-| User | Need |
-|------|------|
-| Solo developer | Catch vulnerabilities before shipping without hiring a security firm |
-| Small engineering team | Repeatable security review without a dedicated security engineer |
-| AI agent builder | Audit AI agent code for LLM-specific risks (prompt injection, trust bypass) |
-| Security professional | Structured, auditable scan-fix workflow they can run on client codebases |
+| User | Core need |
+|------|-----------|
+| Solo developer | Automated security loop that proposes and validates fixes, not just a list of findings |
+| Engineering team | Repeatable simulation-based security review with approval records |
+| AI agent builder | Audit LLM agent code for prompt injection, trust bypass, tool hijacking |
+| Security professional | Auditable scan-fix-verify workflow they can hand off to a client |
 
 ---
 
 ## Functional Requirements
 
-### Scanning
-- FR-01: Scan any local codebase given a directory path
-- FR-02: Cover STRIDE threat model across all scanned files
-- FR-03: Cover OWASP Top 10 with file:line citations
-- FR-04: Cover LLM-specific risks when AI agent code is in scope
-- FR-05: Run browser/UI scan on any subsystem with a web frontend
-- FR-06: Run an independent overseer pass when scanning AI system core files
-- FR-07: Inject evolved patterns from prior rounds into every scan prompt
-- FR-08: Accept a user profile to adjust scan priorities
+### Session lifecycle
+- FR-01: Assign round_id and create isolated simulation environment on session start
+- FR-02: Default session time limit: 60 minutes (configurable per invocation)
+- FR-03: Detect operation mode (NEXUS / SWARM / SOLO) automatically
+- FR-04: Persist full session state to `~/.redblue/rounds/{round_id}.json`
+- FR-05: Post status update to user after each iteration
 
-### Findings
-- FR-09: Every finding includes: id, severity, confidence, category, title, file:line, description, reproduction steps, impact, remediation hint, CVSS estimate, plain-English explanation
-- FR-10: Findings deduplicated by (file, title) across parallel agents
-- FR-11: Findings scored by `cvss × confidence_weight` and sorted by priority
+### Simulation environment
+- FR-06: Create git worktree for git repos (`git worktree add`)
+- FR-07: Fall back to directory copy for non-git projects
+- FR-08: Simulation path must be fully isolated — no writes to real project path during loop
+- FR-09: Clean up simulation after approved changes are applied
+
+### Red team scan
+- FR-10: Scan all subsystems in scope per iteration
+- FR-11: Cover STRIDE threat model, OWASP Top 10, LLM-specific risks
+- FR-12: Run browser/UI scan for subsystems with web frontends
+- FR-13: Run independent overseer pass for AI system core files
+- FR-14: Inject EVOLVED PATTERNS from skill into every scan prompt
+- FR-15: Output structured JSON finding per issue: bug, vulnerability, or enhancement
+- FR-16: Include plain-English layman explanation per finding
+
+### Iteration delta
+- FR-17: After each re-scan, compute: resolved / remaining / newly-introduced
+- FR-18: Convergence condition: zero Critical/High in `remaining + newly_introduced`
+- FR-19: Loop exits on convergence OR time limit — whichever comes first
+- FR-20: Record per-iteration delta in session state
+
+### Blue team (simulation)
+- FR-21: Blue agents write actual code changes into the simulation environment only
+- FR-22: File-lock enforced — no two agents touch the same file in the same iteration
+- FR-23: Run `py_compile` on all Python files modified in simulation
+- FR-24: Output structured proposal per change: code_before, code_after, expected_outcome
+- FR-25: Blue team may also identify enhancements (not just bug fixes)
+
+### Full session report
+- FR-26: Report covers entire session: all iterations, all findings, all proposals
+- FR-27: Report includes: start/end severity counts, risk delta, iteration history
+- FR-28: Report lists proposed fixes with code diffs and confidence scores
+- FR-29: Report lists remaining unresolved issues with reason
+- FR-30: Report lists enhancements identified
+- FR-31: Report lists issues newly introduced by blue team fixes
 
 ### Approval gate
-- FR-12: Present round report and halt — no fixes until approved
-- FR-13: Support per-finding approve / reject / defer decisions
-- FR-14: Support round-level actions: APPROVE / APPROVE CRITICAL / SKIP [ids] / SKIP ALL
-- FR-15: Accept optional user rating (1–5) per round
-- FR-16: Optional: Security Review UI (FastAPI + React) for visual approval
+- FR-32: Present report to Security Review UI (or text fallback)
+- FR-33: Per-item decisions: approve / reject / defer + reason field
+- FR-34: Round-level: APPROVE ALL / APPROVE CRITICAL+HIGH / SKIP SESSION
+- FR-35: Agent explains each item in plain English before user decides
+- FR-36: No changes applied until user submits decisions
 
-### Fixing
-- FR-17: Dispatch fix agents only for approved findings
-- FR-18: Enforce file-lock — no two agents touch the same file
-- FR-19: Each fix agent states a Goal Declaration before first file change
-- FR-20: Validate all Python fixes with `py_compile` before marking complete
-- FR-21: Run retest agent to verify each fix against its declared outcomes
+### Apply approved changes
+- FR-37: Copy approved files from simulation to real project path
+- FR-38: `py_compile` on all Python files applied
+- FR-39: Run final verification scan on modified real files
+- FR-40: Report APPLIED / MISSING / REGRESSED per proposal
+- FR-41: Clean up simulation environment after application
 
 ### Self-improvement
-- FR-22: Log every Critical/High fix to learning vault with violation + prevention rule
-- FR-23: Detect patterns appearing 3+ times → add to EVOLVED PATTERNS section
-- FR-24: Mark dormant patterns (not seen in 5+ rounds)
-- FR-25: Mark false-positive patterns (FP in 2+ rounds)
-- FR-26: Update workflow phases when scan/fix instructions are found lacking
-- FR-27: Update user profile after every round
-- FR-28: Auto-push updated skill to all configured git remotes
-
-### Modes
-- FR-29: SOLO mode — all phases run sequentially with one agent
-- FR-30: SWARM mode — parallel agents via `delegate_task`
-- FR-31: NEXUS mode — SWARM + Nexus memory + nexus_scribe skill refinement
-- FR-32: Auto-detect mode on startup
+- FR-42: Log Critical/High fixes to learning vault after application
+- FR-43: Detect patterns in 3+ sessions → add to EVOLVED PATTERNS
+- FR-44: Mark dormant patterns (absent 5+ sessions)
+- FR-45: Mark false-positive patterns (FP in 2+ sessions)
+- FR-46: Adjust Phase 1 scan hints when classes of findings are repeatedly missed
+- FR-47: Add Phase 2 warnings when fix types consistently introduce new bugs
+- FR-48: Update user profile after every session
+- FR-49: Auto-push evolved skill to all configured git remotes
 
 ---
 
 ## Non-Functional Requirements
 
-- NFR-01: **No secrets in skill file** — no API keys, no personal paths, no credentials
-- NFR-02: **User profile is local-only** — `user-profile.json` never committed to git
-- NFR-03: **Approval gate is hard** — the skill must not apply fixes without an explicit APPROVE response
-- NFR-04: **File-lock is enforced** — blue team agents cannot touch files outside their declared scope
-- NFR-05: **Portable storage** — all state lives in `~/.redblue/`, no external database
-- NFR-06: **Attribution preserved** — author credit visible in skill file and any generated reports
-- NFR-07: **Push failures non-blocking** — auto-sync failure logs and reports but does not halt the round
+- NFR-01: Real code is never modified during the simulation loop
+- NFR-02: Simulation environment is fully isolated from the real project path
+- NFR-03: Approval gate cannot be bypassed — no apply without explicit user decision
+- NFR-04: File-lock prevents blue agent conflicts within an iteration
+- NFR-05: All state stored locally in `~/.redblue/` — no external service required
+- NFR-06: Push failures are non-blocking — logged and surfaced but loop continues
+- NFR-07: No secrets, personal paths, or API keys in the skill file
+- NFR-08: User profile is never published or committed to public repos
+
+---
+
+## Data Model
+
+### Session state (`~/.redblue/rounds/{round_id}.json`)
+
+```json
+{
+  "round_id": "redblue-2026-05-14-01",
+  "started_at": "2026-05-14T08:00:00Z",
+  "time_limit_minutes": 60,
+  "mode": "NEXUS|SWARM|SOLO",
+  "sim_path": "~/.redblue/sim/redblue-2026-05-14-01/",
+  "sim_type": "worktree|copy",
+  "status": "running|converged|time_limit|pending_approval|applied",
+  "iterations": [
+    {
+      "iteration": 1,
+      "started_at": "ISO",
+      "red_findings": [],
+      "blue_proposals": [],
+      "resolved_from_prior": [],
+      "newly_introduced": [],
+      "remaining": [],
+      "converged": false
+    }
+  ],
+  "final_report": {},
+  "user_decisions": {
+    "{proposal_id}": {
+      "decision": "approved|rejected|deferred",
+      "reason": "",
+      "decided_at": "ISO"
+    }
+  },
+  "apply_results": {
+    "{proposal_id}": "APPLIED|MISSING|REGRESSED"
+  }
+}
+```
+
+### Finding schema
+
+```json
+{
+  "id": "redblue-2026-05-14-01-I1-AUTH-001",
+  "type": "bug|vulnerability|enhancement",
+  "severity": "critical|high|medium|low|info",
+  "confidence": "high|medium|low",
+  "category": "STRIDE/OWASP ref",
+  "title": "short name",
+  "file": "path:line",
+  "description": "technical detail",
+  "reproduction_steps": ["step1", "step2"],
+  "impact": "what breaks or what improves",
+  "suggestion": "one-sentence fix direction",
+  "cvss_estimate": 7.5,
+  "layman": "plain English explanation"
+}
+```
+
+### Proposal schema
+
+```json
+{
+  "proposal_id": "redblue-2026-05-14-01-I1-AUTH-001-FIX",
+  "finding_id": "redblue-2026-05-14-01-I1-AUTH-001",
+  "type": "fix|enhancement",
+  "file": "server/auth.py:42",
+  "description": "Added Depends(get_current_user) to admin_route",
+  "expected_outcome": "Unauthenticated requests return 401",
+  "code_before": "...",
+  "code_after": "...",
+  "py_compile": "PASS",
+  "confidence": "high"
+}
+```
 
 ---
 
@@ -122,111 +225,13 @@ LLM-powered agents can reason about code the way a security engineer does — un
 
 | Metric | Target |
 |--------|--------|
-| Vulnerability detection rate | ≥ 80% of known classes in OWASP Top 10 caught per scan |
-| False positive rate | < 15% of findings are false positives after 5 rounds |
-| Pattern growth | EVOLVED PATTERNS section grows with every 3 rounds of usage |
-| User approval rate | Users approve ≥ 60% of Critical/High findings for fixing |
-| Fix retest pass rate | ≥ 90% of blue-team fixes pass retest on first attempt |
-| Self-improvement frequency | At least 1 new evolved pattern added per 5 rounds |
-
----
-
-## Architecture Overview
-
-```mermaid
-C4Context
-    title Red-Blue Loop — System Context
-
-    Person(dev, "Developer", "Uses /redblue to audit and fix code")
-    System(skill, "Red-Blue Loop Skill", "COMMANDER — orchestrates scan, approval, fix, evolution")
-    System_Ext(codebase, "Developer's Codebase", "Source files to be scanned and fixed")
-    System_Ext(browser, "Web Frontend", "Optional UI/browser QA target")
-    System_Ext(storage, "~/.redblue/", "Local storage: rounds, vault, profile, log")
-    System_Ext(git, "Git Remotes", "Nexus repo + red-blue-team repo")
-    System_Ext(nexus, "Nexus AI", "Optional: memory, skill refinement, agent dispatch")
-
-    Rel(dev, skill, "Invokes /redblue, approves findings")
-    Rel(skill, codebase, "Reads files for scan, writes fixes")
-    Rel(skill, browser, "Browser QA scan")
-    Rel(skill, storage, "Reads/writes rounds, vault, profile")
-    Rel(skill, git, "Pushes evolved skill after each round")
-    Rel(skill, nexus, "Delegate agents, save memory, update skill (NEXUS mode)")
-```
-
----
-
-## Data Model
-
-### Round manifest (`~/.redblue/rounds/{round_id}.json`)
-
-```json
-{
-  "round_id": "redblue-2026-05-14-01",
-  "date": "2026-05-14",
-  "mode": "NEXUS|SWARM|SOLO",
-  "phase": "red|aggregate|report|fix|done",
-  "overseer_signoff": true,
-  "blind_spots": [],
-  "status": "scanning|pending|dispatched|skipped",
-  "rating": 4,
-  "findings": [
-    {
-      "id": "redblue-2026-05-14-01-AUTH-001",
-      "severity": "critical",
-      "confidence": "high",
-      "category": "EoP — OWASP A01",
-      "title": "Missing auth decorator on admin route",
-      "file": "server/routes/admin.py:42",
-      "description": "...",
-      "reproduction_steps": ["..."],
-      "impact": "...",
-      "remediation_hint": "...",
-      "cvss_estimate": 9.1,
-      "layman": "Any visitor can access admin controls without logging in.",
-      "decision": "approved|rejected|deferred|pending",
-      "reason": "",
-      "decided_at": 1715694000
-    }
-  ]
-}
-```
-
-### Learning vault (`~/.redblue/learning-vault.json`)
-
-```json
-[
-  {
-    "id": "redblue-2026-05-14-01-AUTH-001",
-    "round": "redblue-2026-05-14-01",
-    "violation": "Route missing auth decorator allows unauthenticated access",
-    "what_should_have_happened": "Every route must have Depends(get_current_user) or @login_required",
-    "fixed": true,
-    "retest_pass": true,
-    "occurrence_count": 3,
-    "verification_due": "2026-05-21"
-  }
-]
-```
-
-### User profile (`~/.redblue/user-profile.json`)
-
-```json
-{
-  "rounds_completed": 12,
-  "stack_signature": ["python", "fastapi", "react", "telegram"],
-  "approval_rates": {
-    "critical": 0.97,
-    "high": 0.84,
-    "medium": 0.38,
-    "low": 0.09,
-    "info": 0.0
-  },
-  "skipped_categories": ["binding-localhost"],
-  "preferred_agents": 6,
-  "avg_rating": 4.1,
-  "last_updated": "2026-05-14"
-}
-```
+| Simulation isolation | 0 modifications to real code during loop |
+| Convergence rate | ≥ 70% of sessions reach full convergence within time limit |
+| Fix validation accuracy | ≥ 85% of approved fixes verified APPLIED in final scan |
+| New-issue introduction rate | < 10% of blue team fixes introduce a new Critical/High |
+| User approval rate | ≥ 60% of proposed fixes approved |
+| Pattern growth | ≥ 1 new EVOLVED PATTERN per 5 sessions |
+| False positive rate after 10 sessions | < 15% |
 
 ---
 

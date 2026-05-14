@@ -1,7 +1,6 @@
 # Red-Blue Loop
 
-**Autonomous security scanning, approval, and fixing for any codebase.**
-A skill for Claude Code and multi-agent AI systems.
+**A continuous simulation loop that finds, proposes fixes for, and re-validates security issues in your codebase — before anything touches your real code.**
 
 > **by Joven Lee** · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)
 > © 2026 Joven Lee Wei Jun · Licensed CC BY-NC-ND 4.0
@@ -10,191 +9,202 @@ A skill for Claude Code and multi-agent AI systems.
 
 ## For Everyone: What is this?
 
-Most developers only find out about security problems after something breaks — a data breach, a hacked account, a corrupted server. By then it's too late.
+Imagine hiring a security team that works in a parallel universe — a perfect copy of your codebase where they can try fixes, break things, rebuild them, and check if their fixes introduced new problems. Only after they've converged on a complete solution do they present it to you for a final sign-off. Your real code is never touched until you say so.
 
-**Red-Blue Loop** is an AI skill that runs security checks on your code continuously, the same way a professional security team would — but fully automated. Think of it like having a tireless security consultant who reads every line of your code, lists everything that could go wrong, explains it in plain English, and then waits for your permission before fixing anything.
+That's what Red-Blue Loop does.
 
-**What it does, in plain English:**
-1. 🔴 **Red team** — AI agents scan your code looking for weaknesses (like a hacker would)
-2. 📋 **Report** — you get a clear list of what was found, explained simply, with a severity score
-3. ✅ **You approve** — nothing gets changed until you say so
-4. 🔵 **Blue team** — AI agents fix only what you approved, carefully and precisely
-5. 🧠 **Learns** — the skill remembers what it found and gets better at spotting the same issues next time
+**In plain English, here's how a session works:**
 
-**Who is it for:**
-- Developers who want automated security reviews without hiring a security firm
-- Teams shipping fast who need a safety net catching vulnerabilities before production
-- Anyone running AI agents who wants to audit the agents themselves for security holes
-- Security professionals who want a repeatable, auditable scan-fix workflow
+1. 🔴 **Red team scans** your code — finds bugs, security holes, and improvement opportunities
+2. 🔵 **Blue team proposes fixes** — in a sandboxed copy of your code, never your real files
+3. 🔴 **Red team scans again** — now on the sandbox with blue's fixes applied. Did they work? Did they introduce new problems?
+4. 🔄 **Repeat** — until everything is resolved, or the time limit is up (default: 1 hour)
+5. 📋 **Full report** — after the session, you get the complete picture: what was found, what was fixed in simulation, what still needs work, what improvements are suggested
+6. ✅ **You decide** — review every item with a plain-English explanation, approve or reject each one
+7. 🚀 **Applied** — only approved changes land in your real code
 
----
-
-## For Technical Users: How it works
-
-### Architecture
-
-Red-Blue Loop is a **Claude Code skill** — a structured set of instructions that turns any Claude agent into a security audit COMMANDER. It orchestrates parallel specialised agents, collects structured findings, enforces an approval gate, and dispatches targeted fix agents.
-
-It works in three modes depending on your setup:
-
-| Mode | Requirements | Agent parallelism |
-|------|-------------|-------------------|
-| **SOLO** | Any Claude Code instance | Sequential — one agent does everything |
-| **SWARM** | Any `delegate_task`-capable framework | Parallel scan + fix agents |
-| **NEXUS** | Nexus AI framework | Full parallel + persistent memory + auto-refinement |
-
-### Threat model
-
-Every scan covers:
-- **STRIDE** — Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege
-- **OWASP Top 10** — injection, broken auth, security misconfiguration, XSS, XXE, IDOR, vulnerable components, logging failures, SSRF
-- **LLM-specific risks** — prompt injection, trust boundary bypass, memory poisoning, tool hijacking
-
-### Finding schema
-
-Every finding is a structured JSON object with severity, CVSS score, reproduction steps, impact, fix direction, and a plain-English explanation.
-
-### Self-improvement
-
-After every round, the skill:
-1. Detects vulnerability classes appearing 3+ times across rounds
-2. Writes them as auto-flagged patterns in its own `## EVOLVED PATTERNS` section
-3. Feeds those patterns back into every future scan prompt
-4. Marks stale or false-positive patterns so agents don't chase them
-5. Updates its own workflow phases when scan or fix instructions are found lacking
-6. Pushes the updated skill to all configured git remotes
-
-The skill grows better with every run. Patterns discovered in your codebase become permanent scan rules, not just one-off findings.
+**The key difference from other security tools:**
+Most tools find problems and stop there. This one runs a full simulation to figure out the best way to fix each problem and validates that the fix actually works — before asking you to approve anything.
 
 ---
 
-## Workflow
+## For Technical Users
 
-### Full round flow
+### The simulation loop
 
 ```mermaid
 flowchart TD
-    A([/redblue]) --> B[Phase 0: Initialise Round\nDetect mode · Load user profile · Load evolved patterns]
-    B --> C{Mode?}
-    C -->|NEXUS/SWARM| D[Dispatch N parallel\nscan agents]
-    C -->|SOLO| E[Sequential\nscan passes]
-    D --> F[Phase 1: Red Team Scan\nSTRIDE + OWASP + LLM risks]
-    E --> F
-    F --> G[Phase 1b: UI/Browser QA\nFor web frontends only]
-    G --> H[Phase 1c: Self-Scan Overseer\nFor AI core files only]
-    H --> I[Phase 2: Aggregate + Score\nDeduplicate · CVSS × confidence · Sort]
-    I --> J[Phase 3: Round Report\nPlain-English findings · Wait for approval]
-    J --> K{User decision}
-    K -->|APPROVE| L[Phase 4: Goal Declaration\nState outcomes before touching files]
-    K -->|SKIP ALL| M[Skip to Phase 6]
-    L --> N[Phase 5: Blue Team Fix\nFile-locked · py_compile gate · Retest]
-    N --> O[Phase 6: Fix Report]
-    M --> O
-    O --> P[Phase 6b: Learning Vault\nLog Critical/High fixes]
-    P --> Q[Phase 6c: Update User Profile\nApproval rates · Stack signature]
-    Q --> R[Phase 6d: Self-Improvement\nNew patterns · Fix workflow · Mark stale]
-    R --> S[Phase 6e: Auto-Sync\nPush to all git remotes]
-    S --> T[Phase 7: Next Round]
-    T --> B
+    A([/redblue]) --> B[Phase 0: Initialise\nCreate simulation environment\ngit worktree or temp copy]
+    B --> I1
+
+    subgraph LOOP [Simulation Loop — up to 1 hour]
+        I1[Iteration N\nRed Team Scan\non simulation state]
+        I1 --> I2[Blue Team Propose\nWrite fixes + enhancements\nto simulation only]
+        I2 --> I3[Red Re-Scan\nvalidate fixes\ndetect new issues]
+        I3 --> CHK{Convergence?}
+        CHK -->|Critical/High remain| I1
+        CHK -->|Time limit reached| RPT
+        CHK -->|All resolved| RPT
+    end
+
+    RPT[Full Session Report\nAll bugs · All proposals · Remaining · Introduced]
+    RPT --> UI[Security Review UI\nApprove · Reject · Reason · per item]
+    UI --> APL[Apply approved changes\nto real code]
+    APL --> VFY[Final verification scan\nconfirm applied correctly]
+    VFY --> EVO[Self-Improvement\nLearn · Evolve patterns · Sync remotes]
+    EVO --> A
 ```
+
+### Operation modes
+
+| Mode | Requirements | Parallelism |
+|------|-------------|-------------|
+| **SOLO** | Any Claude Code instance | Sequential iterations |
+| **SWARM** | Any `delegate_task` framework | Parallel scan + fix agents per iteration |
+| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 ### Agent architecture
 
 ```mermaid
 flowchart LR
-    subgraph COMMANDER
-        C[/redblue skill\nCOMMANDER]
+    subgraph COMMANDER [COMMANDER]
+        C[/redblue\nSession orchestrator]
     end
 
-    subgraph RED_TEAM [Red Team Agents - files only]
-        R1[Scan Agent 1\nSubsystem A]
-        R2[Scan Agent 2\nSubsystem B]
-        R3[Scan Agent N\nSubsystem ...]
+    subgraph SIM [Simulation Environment — ~/.redblue/sim/round_id/]
+        SF[Sandboxed\ncopy of codebase]
+    end
+
+    subgraph RED [Red Team — reads sim, never writes]
+        R1[Scan Agent 1]
+        R2[Scan Agent 2]
+        RN[Scan Agent N]
         RUI[UI-QA Agent\nbrowser + files]
         ROV[Overseer Pass\nindependent re-scan]
     end
 
-    subgraph BLUE_TEAM [Blue Team Agents - files only]
-        B1[Fix Agent 1\nFile set A]
-        B2[Fix Agent 2\nFile set B]
-        BN[Fix Agent N\nFile set ...]
-        BRT[Retest Agent\nverify all fixes]
+    subgraph BLUE [Blue Team — writes to sim only]
+        B1[Fix Agent 1\nFile cluster A]
+        B2[Fix Agent 2\nFile cluster B]
+        BN[Fix Agent N\nFile cluster ...]
     end
 
-    C -->|delegate_task| R1 & R2 & R3 & RUI & ROV
-    R1 & R2 & R3 & RUI & ROV -->|findings JSON| C
-    C -->|APPROVE| B1 & B2 & BN
-    B1 & B2 & BN -->|fix reports| BRT
-    BRT -->|PASS/FAIL| C
+    C -->|scan sim| R1 & R2 & RN & RUI & ROV
+    R1 & R2 & RN & RUI & ROV -->|findings| C
+    C -->|propose fixes in sim| B1 & B2 & BN
+    B1 & B2 & BN -->|proposals + changes| SFw[Simulation files updated]
+    SFw --> R1
+    SF --- SFw
 ```
 
-### Self-improvement loop
+### What "simulation" means technically
+
+The simulation is a git worktree (or a directory copy for non-git projects):
+- `git worktree add ~/.redblue/sim/{round_id}` creates an isolated branch
+- Blue team agents edit real files inside that worktree
+- `py_compile` runs against those files so syntax is validated
+- Red team scans the same path the next iteration
+- At approval time, changed files are copied/merged into the main project
+
+This means blue team proposals are actual code, not pseudocode — they get validated by the same scan logic that found the problems.
+
+### Convergence
+
+The loop exits when:
+- No Critical or High severity findings remain in simulation, **OR**
+- The session time limit is reached (default 60 minutes, configurable)
+
+The convergence state is recorded per iteration so the final report shows exactly how many passes were needed to resolve each issue.
+
+### Iteration delta tracking
+
+Each re-scan computes:
+- **Resolved** — issues from iteration N-1 that no longer appear
+- **Remaining** — issues from N-1 that still appear (fix didn't work)
+- **Newly introduced** — issues in iteration N not present before (blue team's fix caused a new problem)
+
+This three-way delta is the core feedback loop — it tells blue team exactly what their fix broke.
+
+---
+
+## Workflow: full session view
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Commander
+    participant R as Red Team
+    participant B as Blue Team
+    participant S as Simulation
+    participant UI as Approval UI
+
+    U->>C: /redblue
+    C->>S: Create simulation environment
+    loop Until convergence or time limit
+        C->>R: Scan simulation
+        R-->>C: Findings (bugs + vulns + enhancements)
+        C->>B: Propose fixes for findings
+        B->>S: Apply changes to simulation files
+        B-->>C: Proposals (code_before/after, confidence)
+        C->>R: Re-scan (validate fixes, find new issues)
+        R-->>C: Delta (resolved / remaining / introduced)
+        C-->>U: Iteration status update
+    end
+    C->>UI: POST full session report
+    UI-->>U: Review each item (plain-English explanation)
+    U->>UI: Approve / Reject / Reason per item
+    UI->>C: Decisions
+    C->>S: Copy approved files to real codebase
+    C->>R: Final verification scan
+    R-->>C: APPLIED / MISSING / REGRESSED per item
+    C-->>U: Session complete
+    C->>C: Self-improvement + sync to remotes
+```
+
+---
+
+## Self-Improvement Loop
 
 ```mermaid
 flowchart TD
-    LV[learning-vault.json\nAll confirmed fixes] --> PD{Pattern\nappears 3+ times?}
-    PD -->|Yes| EP[Add to EVOLVED PATTERNS\nin SKILL.md]
+    LV[learning-vault.json] --> PD{Pattern\nin 3+ sessions?}
+    PD -->|Yes| EP[Add to EVOLVED PATTERNS\nfed into every future scan]
     PD -->|No| SK[Skip]
-    EP --> SP[Inject pattern into\nnext scan prompt]
-    SP --> SC[Scan catches it\nfaster next round]
+    EP --> SY[Auto-sync to git remotes]
 
-    EP --> SY[Auto-sync to\ngit remotes]
-    SY --> PR[Everyone who clones\ngets the improvement]
+    IT[Iteration history] --> CF{Convergence\ntook > 8 iterations?}
+    CF -->|Yes| SD[Increase scan depth hint\nin Phase 1 prompt]
+    CF -->|No| NR[No change]
 
     UP[user-profile.json] --> AR[Approval rates\nper severity]
-    AR --> AW[Adjust report weighting\nnext round]
-    UP --> SC2[Stack signature\nhints for scan agents]
-```
-
-### User profile adaptation
-
-```mermaid
-flowchart LR
-    RD[Round decisions\nApprove · Reject · Defer] --> UP[Update user-profile.json]
-    UP --> AR[Approval rates\nrunning average]
-    UP --> SC[Skipped categories\n3+ consecutive rejections]
-    UP --> SS[Stack signature\nextracted from file paths]
-    UP --> PA[Preferred agent count\navg of rounds rated ≥ 4]
-
-    AR --> NR[Next round:\nweight report accordingly]
-    SC --> NR
-    SS --> NR
-    PA --> NR
+    AR --> RW[Reweight findings\nin next report]
 ```
 
 ---
 
 ## Security Review UI (optional)
 
-A FastAPI router and React component are included for a visual approval interface.
-Each finding shows severity, CVSS score, plain-English explanation, and Approve / Reject / Defer controls.
+A FastAPI router and React component for the approval interface.
+Each item shows: severity badge, CVSS score, plain-English explanation, code diff, approve/reject/defer buttons with reason input.
 
 ```
-server/security.py     ← FastAPI router: /api/security/rounds
-client/SecurityReview.tsx  ← React component
+server/security.py         ← FastAPI: /api/security/rounds
+client/SecurityReview.tsx  ← React approval UI
 ```
 
-The text-based approval in Phase 3 works perfectly fine without these.
+Phase 5 text approval works without these if you prefer.
 
 ---
 
 ## Install
 
 ```bash
-# Clone the repo
 git clone git@github.com:jovenleewj-png/red-blue-team.git
-
-# Create storage directory
 mkdir -p ~/.redblue/rounds
-
-# Copy the skill to your agent's skills directory
-# For Claude Code / Nexus:
 mkdir -p ~/.nexus/skills/red-blue-loop
 cp red-blue-team/SKILL.md ~/.nexus/skills/red-blue-loop/SKILL.md
-
-# Configure your scope
 cp red-blue-team/scope.example.yaml ~/.redblue/scope.yaml
-# Edit ~/.redblue/scope.yaml with your system paths
+# Edit scope.yaml with your system paths
 ```
 
 ---
@@ -202,52 +212,35 @@ cp red-blue-team/scope.example.yaml ~/.redblue/scope.yaml
 ## Usage
 
 ```
-/redblue                   full scan, all phases
-/redblue {subsystem}       single subsystem
-/redblue ui                include browser QA on web frontends
-/redblue report only       regenerate last report, no new scan
-/redblue fix approved      skip to blue team with pre-approved findings
-/redblue solo              force single-agent mode
-/redblue profile           show what the skill learned about your usage
-/redblue evolve            self-improvement pass without a new scan
+/redblue                  full scope, loop until convergence or 1 hour
+/redblue {subsystem}      single subsystem
+/redblue 30m              custom time limit
+/redblue ui               include browser QA
+/redblue report only      show last session report
+/redblue apply approved   apply pre-decided proposals
+/redblue solo             force SOLO mode
+/redblue profile          show what the skill learned about your usage
+/redblue evolve           self-improvement pass only
 ```
 
 ---
 
 ## Contributing
 
-Patterns discovered in your codebase that prove universal should be contributed back.
+If the simulation loop surfaces a pattern in your codebase that proves universal,
+contribute it back to EVOLVED PATTERNS via PR:
 
 1. Fork this repo
-2. Add your pattern to the `## EVOLVED PATTERNS` section of `SKILL.md` following the existing format
-3. Submit a PR with a note on how many occurrences you observed and what codebase type
-
-All contributions are reviewed by Joven Lee before merging.
-
----
-
-## PRD
-
-See [PRD.md](PRD.md) for the full product requirements document — problem statement, goals, non-goals, requirements, and success metrics.
+2. Add your pattern to `## EVOLVED PATTERNS` following the existing format
+3. Include: detected version, occurrence count, check string, auto-flag status
+4. Submit PR — reviewed by Joven Lee before merging
 
 ---
 
 ## License and Attribution
 
-Licensed under **Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0)**.
+**CC BY-NC-ND 4.0** — See [TERMS.md](TERMS.md) for full terms.
 
-**You must:**
-- Credit Joven Lee Wei Jun as the author on any output shared publicly
-- Keep this notice intact when distributing this file
+Any output shared publicly must credit: *"Security audit powered by Red-Blue Loop by Joven Lee Wei Jun."*
 
-**You may not:**
-- Sell or commercialise this skill or its methodology
-- Modify and redistribute as your own work
-- Use it to train any AI or ML model
-
-Full terms: [creativecommons.org/licenses/by-nc-nd/4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-
----
-
-**© 2026 Joven Lee Wei Jun**
-**[linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)**
+**© 2026 Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/)**
