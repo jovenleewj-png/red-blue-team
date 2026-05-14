@@ -298,6 +298,38 @@ Phase 5 text approval works without these if you prefer.
 
 ---
 
+## Platform Compatibility
+
+Red-Blue Loop runs on any AI coding assistant. The core phases, prompts, and simulation logic are identical everywhere — only the tool names differ.
+
+| Platform | How to install | Operation mode |
+|----------|---------------|---------------|
+| **Claude Code** | Copy `SKILL.md` to `~/.nexus/skills/red-blue-loop/SKILL.md` | SOLO / SWARM / NEXUS |
+| **OpenAI Codex CLI** | Copy `AGENTS.md` to your project root or `~/.codex/AGENTS.md` | SOLO / SWARM |
+| **ChatGPT Custom GPT** | Paste `GPT-SYSTEM-PROMPT.md` into Custom GPT instructions | Conversation mode |
+| **Any LLM terminal agent** | Reference `SKILL.md` in your system prompt or agent instructions | SOLO |
+
+### Using with OpenAI Codex CLI
+
+```bash
+cp red-blue-team/AGENTS.md ~/.codex/AGENTS.md
+# or copy to your project root so it loads per-project
+cp red-blue-team/AGENTS.md ./AGENTS.md
+```
+
+Codex CLI reads `AGENTS.md` at session start. Once installed, `/redblue` triggers the full loop. All phases run identically — `git worktree`, `py_compile`, `~/.redblue/` storage, nine-domain scanning, approval gate. The only difference: Nexus-specific tools (`nexus_scribe`, `nexus_mind`) are replaced by direct file writes.
+
+### Using with ChatGPT / Custom GPT
+
+1. Open [GPT-SYSTEM-PROMPT.md](GPT-SYSTEM-PROMPT.md)
+2. Copy everything between `=== SYSTEM PROMPT START ===` and `=== SYSTEM PROMPT END ===`
+3. Paste into your Custom GPT's **Instructions** field
+4. Optionally upload `SKILL.md` as a Knowledge file for full protocol detail
+
+In conversation mode the GPT cannot write files — it shows you exactly what to change and you apply it. All nine domains, the full report format, and the per-item approval gate are all fully functional in conversation.
+
+---
+
 ## Install
 
 ```bash

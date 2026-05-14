@@ -2,13 +2,14 @@
 name: red-blue-loop
 trigger: /redblue
 description: >
-  Autonomous quality simulation loop covering eight testing domains: security,
+  Autonomous quality simulation loop covering nine testing domains: security,
   agent behaviour, skill correctness, infrastructure, tech stack, eval harnesses,
-  functional correctness, and UI/UX quality. Red team finds issues across all
-  relevant domains. Blue team proposes fixes in a sandboxed simulation. The skill
-  learns in real-time between iterations — every new pattern discovered is
-  immediately injected into the next scan. After the session, a full report goes
-  to the approval UI. Nothing lands in real code until the user decides.
+  functional correctness, UI/UX quality, and product testing. Red team finds
+  issues across all relevant domains. Blue team proposes fixes in a sandboxed
+  simulation. The skill learns in real-time between iterations. After the session,
+  a full report goes to the approval UI. Nothing lands in real code until the
+  user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
+  Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
 version: "7.0"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
@@ -118,16 +119,26 @@ as the loop runs.
 
 | Mode | Requirements | Parallelism |
 |------|-------------|-------------|
-| **SOLO** | Any Claude Code instance | Sequential iterations |
-| **SWARM** | Any `delegate_task` framework | Parallel agents per iteration |
+| **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
+| **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
 | **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 Auto-detect:
 ```
-nexus_scribe available  → NEXUS mode
-delegate_task available → SWARM mode
-else                    → SOLO mode
+nexus_scribe available       → NEXUS mode
+delegate_task or parallel
+  tool calls available       → SWARM mode
+else                         → SOLO mode
 ```
+
+## Platform Support
+
+| Platform | Install file | Docs |
+|----------|-------------|------|
+| Claude Code | `SKILL.md` | This file |
+| OpenAI Codex CLI | `AGENTS.md` | [AGENTS.md](AGENTS.md) |
+| ChatGPT Custom GPT | `GPT-SYSTEM-PROMPT.md` | [GPT-SYSTEM-PROMPT.md](GPT-SYSTEM-PROMPT.md) |
+| Any LLM agent | Reference `SKILL.md` in system prompt | — |
 
 ---
 
@@ -974,7 +985,8 @@ Adjust agent count:
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
-| 7.0 | **Eight-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
+| 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
+| 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
 
 ---
 
