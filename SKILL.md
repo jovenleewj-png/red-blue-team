@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.0"
+version: "7.1"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -1046,6 +1046,82 @@ Adjust agent count:
 **Domain:** functional  **Sessions:** 3+  **Status:** active
 **Rule:** Every list or data-driven UI component must handle the empty/null/zero-items case.
 **Check for:** `.map(` or list renders without a preceding null/empty check and fallback
+
+---
+
+### PATTERN: Env Var Name Mismatch
+**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** The key passed to `os.getenv()` must exactly match the variable name in `.env`. A mismatch silently loads the insecure default in production.
+**Check for:** `os.environ.get("SOME_KEY", "default-secret")` — compare key name against every `.env` file. Add startup `RuntimeError` if value equals known default.
+
+---
+
+### PATTERN: Trust Screening Partial Coverage
+**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** If a security screener guards some tool dispatch paths but not others, the unguarded paths are the attack surface.
+**Check for:** Every `registry.dispatch()` or tool execution site. Every one must route through the screener — no exceptions, no `pass` on screener failure.
+**Fix direction:** Extract screener call into a shared `_screened_dispatch()` helper. Fail-closed: `except: continue` (block), never `except: pass` (allow).
+
+---
+
+### PATTERN: Unfiltered Tool Output Injected into LLM
+**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Web scrapes, memory reads, and any external tool output must be scanned for injection phrases before entering the LLM message list.
+**Check for:** Tool result strings appended to message arrays without a `_scan_for_threats()` call. Look at web.py, memory.py, file-read tools.
+**Fix direction:** Shared `_scan_content(text)` that redacts lines containing injection phrases. Apply at the tool-result boundary, not per-call-site.
+
+---
+
+### PATTERN: Package Imported But Not in Requirements
+**Domain:** infra  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Every package imported at the top level of production code must appear in `requirements.txt`. Missing entries crash fresh deployments.
+**Check for:** Extract import names from `*.py`; diff against `requirements.txt`. Pay special attention to scheduler, messaging, and metrics packages.
+
+---
+
+### PATTERN: Thread-Unsafe Singleton
+**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Module-level singletons with `if _x is None: _x = X()` are not thread-safe. Under concurrent requests two instances are created.
+**Check for:** `if _x is None:` followed by construction without a lock. Applies to database connections, task runners, scheduler instances.
+**Fix direction:** `_lock = threading.Lock()` at module level. Double-checked locking: `if _x is None: with _lock: if _x is None: _x = X()`
+
+---
+
+### PATTERN: Async Silent Catch Hides Errors
+**Domain:** ux  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Every async API call in the frontend must set a visible error state on failure. Empty catch blocks leave users staring at a blank/frozen screen.
+**Check for:** `catch {}` or `catch { /* ignore */ }` or catch blocks that don't call `setError(...)` or equivalent.
+
+---
+
+### PATTERN: Agent Loop Missing Wall-Clock Timeout
+**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** An iteration budget alone is not sufficient. Slow tool calls can exhaust the budget slowly or bypass it if the loop logic is wrong. A wall-clock timeout is mandatory.
+**Check for:** Agent loops that check iteration count but do not record `t0 = time.time()` and check `time.time() - t0 > MAX_SECONDS` each iteration.
+
+---
+
+### PATTERN: Two-Step IDOR — Ownership Check Then Unguarded Fetch
+**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Checking ownership in step 1 and fetching data in step 2 is fragile. Any other code path calling step 2 directly bypasses ownership.
+**Check for:** Route handlers that check session/resource ownership then separately call a data-fetch function — verify the ownership result gates execution.
+**Fix direction:** Prefer a single atomic DB query joining ownership into the data fetch. If two steps unavoidable, assert ownership result is non-None before proceeding.
+
+---
+
+### PATTERN: Trust Not Propagated to Sub-Agents
+**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** When a parent agent delegates a task, it must explicitly pass its trust level to the sub-agent. Without this, sub-agents default to lowest trust regardless of the parent's authorization.
+**Check for:** Any task delegation dispatch where the parent's trust level is not included in the args. Sub-agent always runs at lowest trust by default.
+**Fix direction:** Before dispatch: inject `_parent_trust = str(caller_trust_level)` into the args dict when calling a delegation tool.
+
+---
+
+### PATTERN: Fail-Open Security Control
+**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
+**Rule:** Security controls that skip checks on error or missing configuration are fail-open — they grant access rather than deny it. All security gates must fail-closed.
+**Check for:** `try: screener_check() except: pass` — exception allows the call. `if token: verify() else: allow()` — no token allows the call. `if sig: check() else: allow()` — no signature allows the call.
+**Fix direction:** `except: continue` not `except: pass`. Missing required token → 403. Missing signature when token configured → 401.
 
 ---
 
