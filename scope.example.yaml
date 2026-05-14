@@ -1,0 +1,51 @@
+# scope.example.yaml — Red-Blue Loop Scope Configuration
+#
+# Copy to scope.yaml, fill in your paths.
+# Replace the SCOPE CONFIGURATION table in SKILL.md with your own inventory.
+# Set ui: true for subsystems with a web frontend (enables browser QA agent).
+# Set self_scan: true for your AI system's own core code (enables overseer protocol).
+
+scope:
+  - name: Core AI
+    path: ~/path/to/your/ai-core/
+    description: Orchestration, memory, tool dispatch
+    self_scan: true          # triggers independent overseer pass
+
+  - name: API Server
+    path: ~/path/to/your/server/
+    description: FastAPI/Flask routes, auth, WebSocket
+    ui: true
+    frontend_url: http://localhost:7070
+
+  - name: Messaging
+    path: ~/path/to/your/messaging/
+    description: Telegram, Slack, webhooks
+
+  - name: CRM
+    path: ~/path/to/your/crm/
+    description: Customer-facing web app
+    ui: true
+    frontend_url: http://localhost:3001
+
+  - name: Agent 1
+    path: ~/path/to/agent-1/
+    description: What this agent does
+
+storage:
+  base: ~/.redblue/
+  learning_vault: ~/.redblue/learning-vault.json
+  skill_evolution_log: ~/.redblue/skill-evolution.log
+  user_profile: ~/.redblue/user-profile.json
+
+sync_remotes:
+  - label: my-main-repo
+    repo_path: ~/path/to/main/repo
+    skill_src: ~/path/to/main/repo/skills/red-blue-loop.md
+    branch: main
+    commit_msg: "redblue: self-improvement after {round_id}"
+  - label: red-blue-team
+    repo_path: ~/path/to/red-blue-team
+    skill_src: ~/path/to/red-blue-team/SKILL.md
+    branch: main
+    commit_msg: "skill: evolved patterns after {round_id} (+{n_new} patterns)"
+    strip_private_scope: true  # removes hardcoded local paths before pushing
