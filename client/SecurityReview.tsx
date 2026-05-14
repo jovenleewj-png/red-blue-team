@@ -172,7 +172,7 @@ export default function SecurityReview() {
         <div style={{ ...card, textAlign: "center", padding: 60, color: "#a1a1a6" }}>
           No security rounds found.<br />
           <span style={{ fontSize: 13, marginTop: 8, display: "block" }}>
-            Run <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4 }}>/redblue</code> in Nexus to start a scan.
+            Run <code style={{ background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 4 }}>/redblue</code> to start a scan.
           </span>
         </div>
       </div>

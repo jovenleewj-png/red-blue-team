@@ -1,35 +1,35 @@
 # scope.example.yaml — Red-Blue Loop Scope Configuration
 #
-# Copy to scope.yaml, fill in your paths.
-# Replace the SCOPE CONFIGURATION table in SKILL.md with your own inventory.
-# Set ui: true for subsystems with a web frontend (enables browser QA agent).
-# Set self_scan: true for your AI system's own core code (enables overseer protocol).
+# Copy this file, fill in your system paths, and replace the
+# SCOPE CONFIGURATION table in SKILL.md with your own inventory.
+#
+# Each entry is one subsystem assigned to a scan agent.
+# ui: true   → browser QA agent will scan the frontend
+# self_scan: true → triggers independent overseer pass (for AI system core code)
 
 scope:
-  - name: Core AI
-    path: ~/path/to/your/ai-core/
-    description: Orchestration, memory, tool dispatch
-    self_scan: true          # triggers independent overseer pass
+  - name: Core API
+    path: ~/path/to/your/api/
+    description: Main application logic, routes, auth
 
-  - name: API Server
-    path: ~/path/to/your/server/
-    description: FastAPI/Flask routes, auth, WebSocket
+  - name: Web Frontend
+    path: ~/path/to/your/frontend/
+    description: React/Vue/Angular app
     ui: true
-    frontend_url: http://localhost:7070
+    frontend_url: http://localhost:3000
+
+  - name: AI Core
+    path: ~/path/to/your/ai-agent/
+    description: LLM agent orchestration and tool dispatch
+    self_scan: true   # enables independent overseer pass
 
   - name: Messaging
     path: ~/path/to/your/messaging/
-    description: Telegram, Slack, webhooks
+    description: Telegram, Slack, webhook integrations
 
-  - name: CRM
-    path: ~/path/to/your/crm/
-    description: Customer-facing web app
-    ui: true
-    frontend_url: http://localhost:3001
-
-  - name: Agent 1
-    path: ~/path/to/agent-1/
-    description: What this agent does
+  - name: Database Layer
+    path: ~/path/to/your/db/
+    description: ORM models, migrations, query builders
 
 storage:
   base: ~/.redblue/
@@ -37,15 +37,18 @@ storage:
   skill_evolution_log: ~/.redblue/skill-evolution.log
   user_profile: ~/.redblue/user-profile.json
 
+# Git remotes to push the evolved skill to after each round.
+# strip_private_scope: true removes hardcoded local paths before pushing to public repos.
 sync_remotes:
   - label: my-main-repo
-    repo_path: ~/path/to/main/repo
-    skill_src: ~/path/to/main/repo/skills/red-blue-loop.md
+    repo_path: ~/path/to/main-repo
+    skill_src: ~/path/to/main-repo/skills/red-blue-loop.md
     branch: main
     commit_msg: "redblue: self-improvement after {round_id}"
-  - label: red-blue-team
+
+  - label: red-blue-team-public
     repo_path: ~/path/to/red-blue-team
     skill_src: ~/path/to/red-blue-team/SKILL.md
     branch: main
     commit_msg: "skill: evolved patterns after {round_id} (+{n_new} patterns)"
-    strip_private_scope: true  # removes hardcoded local paths before pushing
+    strip_private_scope: true
