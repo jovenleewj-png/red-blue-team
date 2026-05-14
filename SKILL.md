@@ -121,14 +121,11 @@ as the loop runs.
 |------|-------------|-------------|
 | **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
 | **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
-| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 Auto-detect:
 ```
-nexus_scribe available       → NEXUS mode
-delegate_task or parallel
-  tool calls available       → SWARM mode
-else                         → SOLO mode
+delegate_task or parallel tool calls available → SWARM mode
+else                                           → SOLO mode
 ```
 
 ## Platform Support
@@ -198,7 +195,7 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 ### Phase 0 — Initialise Session
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
-2. Detect mode (NEXUS / SWARM / SOLO).
+2. Detect mode (SWARM / SOLO).
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
 5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
@@ -268,7 +265,7 @@ eval        → active if: eval/, benchmark/, evals.py, test harness found
 ux          → active if: frontend_url set in scope config OR web frontend detected
 ```
 
-**NEXUS/SWARM:** one specialist agent per active domain, all run in parallel.
+**SWARM:** one specialist agent per active domain, all run in parallel.
 **SOLO:** sequential passes, one per active domain, on each subsystem.
 
 ---
@@ -546,7 +543,7 @@ Do NOT fix anything.
 #### Phase 1h — UI / UX Scan
 
 *Active when ux domain is detected.*
-**NEXUS/SWARM:** dedicated browser agent `["browser", "files"]`.
+**SWARM:** dedicated browser agent `["browser", "files"]`.
 **SOLO:** browser pass.
 
 ```
@@ -672,7 +669,7 @@ This is autonomous and continuous — no human action required.
 Blue team receives findings from Phase 1. They apply proposed changes **inside the
 simulation environment only**. Real code is never touched.
 
-**NEXUS/SWARM:** parallel agents per domain cluster (file-locked).
+**SWARM:** parallel agents per domain cluster (file-locked).
 **SOLO:** sequential fix passes.
 
 ```
@@ -924,11 +921,7 @@ Marked as false positive in 2+ sessions → `status: false-positive` with note
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
 
-**7f — NEXUS mode:**
-- Write updated skill via `nexus_scribe`
-- Save session summary to Nexus long-term memory via `nexus_mind.save()`
-
-**7g — Auto-sync to remotes:**
+**7f — Auto-sync to remotes:**
 Push evolved skill to all remotes in `~/.redblue/sync-remotes.json`.
 
 ---
@@ -981,7 +974,7 @@ Adjust agent count:
 | 2.0 | Security Review UI |
 | 2.1 | Overseer Protocol, Goal Declaration |
 | 3.0 | SOLO mode, end-of-session self-improvement |
-| 4.0 | User profile, NEXUS mode, auto-sync |
+| 4.0 | User profile, auto-sync |
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |

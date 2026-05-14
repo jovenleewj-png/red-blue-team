@@ -110,9 +110,8 @@ Each iteration builds on what the previous one discovered. By iteration 3, the r
 
 | Mode | Requirements | Parallelism |
 |------|-------------|-------------|
-| **SOLO** | Any Claude Code instance | Sequential iterations |
-| **SWARM** | Any `delegate_task` framework | Parallel scan + fix agents per iteration |
-| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
+| **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
+| **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel scan + fix agents per iteration |
 
 ### Agent architecture
 
@@ -304,7 +303,7 @@ Red-Blue Loop runs on any AI coding assistant. The core phases, prompts, and sim
 
 | Platform | How to install | Operation mode |
 |----------|---------------|---------------|
-| **Claude Code** | Copy `SKILL.md` to `~/.nexus/skills/red-blue-loop/SKILL.md` | SOLO / SWARM / NEXUS |
+| **Claude Code** | Copy `SKILL.md` to your skills directory | SOLO / SWARM |
 | **OpenAI Codex CLI** | Copy `AGENTS.md` to your project root or `~/.codex/AGENTS.md` | SOLO / SWARM |
 | **ChatGPT Custom GPT** | Paste `GPT-SYSTEM-PROMPT.md` into Custom GPT instructions | Conversation mode |
 | **Any LLM terminal agent** | Reference `SKILL.md` in your system prompt or agent instructions | SOLO |
@@ -317,7 +316,7 @@ cp red-blue-team/AGENTS.md ~/.codex/AGENTS.md
 cp red-blue-team/AGENTS.md ./AGENTS.md
 ```
 
-Codex CLI reads `AGENTS.md` at session start. Once installed, `/redblue` triggers the full loop. All phases run identically — `git worktree`, `py_compile`, `~/.redblue/` storage, nine-domain scanning, approval gate. The only difference: Nexus-specific tools (`nexus_scribe`, `nexus_mind`) are replaced by direct file writes.
+Codex CLI reads `AGENTS.md` at session start. Once installed, `/redblue` triggers the full loop. All phases run identically — `git worktree`, `py_compile`, `~/.redblue/` storage, nine-domain scanning, approval gate.
 
 ### Using with ChatGPT / Custom GPT
 

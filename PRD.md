@@ -133,7 +133,7 @@ flowchart TD
 ### Session lifecycle
 - FR-01: Assign round_id and create isolated simulation environment on session start
 - FR-02: Default session time limit: 60 minutes (configurable per invocation)
-- FR-03: Detect operation mode (NEXUS / SWARM / SOLO) automatically
+- FR-03: Detect operation mode (SWARM / SOLO) automatically
 - FR-04: Persist full session state to `~/.redblue/rounds/{round_id}.json`
 - FR-05: Post status update to user after each iteration
 
@@ -239,7 +239,7 @@ flowchart TD
   "round_id": "redblue-2026-05-14-01",
   "started_at": "2026-05-14T08:00:00Z",
   "time_limit_minutes": 60,
-  "mode": "NEXUS|SWARM|SOLO",
+  "mode": "SWARM|SOLO",
   "sim_path": "~/.redblue/sim/redblue-2026-05-14-01/",
   "sim_type": "worktree|copy",
   "status": "running|converged|time_limit|pending_approval|applied",

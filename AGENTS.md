@@ -30,8 +30,6 @@ Use these mappings where Claude-specific tools are referenced:
 
 | SKILL.md reference | Codex equivalent |
 |--------------------|-----------------|
-| `nexus_scribe` | Write to file directly |
-| `nexus_mind.save()` | Append a summary to `~/.redblue/session-notes.md` |
 | `delegate_task` available | Use parallel tool calls → SWARM mode |
 | `delegate_task` not available | Sequential passes → SOLO mode |
 | `Skill` tool | Read `SKILL.md` directly |
@@ -40,7 +38,6 @@ Use these mappings where Claude-specific tools are referenced:
 ```
 parallel tool calls available → SWARM mode
 otherwise                     → SOLO mode
-NEXUS mode is not applicable on Codex
 ```
 
 **Everything else is identical:** git worktree, py_compile, file writes to
