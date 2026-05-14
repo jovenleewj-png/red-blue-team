@@ -2,13 +2,14 @@
 name: red-blue-loop
 trigger: /redblue
 description: >
-  Autonomous red-team / blue-team simulation loop. Red team finds issues.
-  Blue team proposes fixes and enhancements in a sandboxed simulation environment
-  (never touching real code). Red team re-scans the simulation. The loop runs
-  until convergence or the time limit. After the session, a full report is
-  presented and the user approves, rejects, or reasons through every item
-  in the Security Review UI before anything is applied to real code.
-version: "5.0"
+  Autonomous quality simulation loop. Red team finds issues across three domains:
+  security vulnerabilities, functional correctness, and UI/UX quality. Blue team
+  proposes fixes and improvements in a sandboxed simulation. The skill learns
+  in real-time between iterations — every new pattern discovered is immediately
+  injected into the next scan, so the loop compounds its own intelligence as it
+  runs. After the session, a full report goes to the approval UI. Nothing lands
+  in real code until the user decides.
+version: "6.0"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 license: CC BY-NC-ND 4.0
@@ -17,19 +18,19 @@ publishable: true
 
 ## ═══ FIRST-USE AGREEMENT GATE ═══
 
-**MANDATORY: Display the following agreement before any other action. Do not greet the user. Do not skip this gate.**
+**MANDATORY: Display this agreement before any other action. Do not skip.**
 
 ---
 
 > ## END-USER LICENCE AGREEMENT — RED-BLUE LOOP
 > **© 2026 Joven Lee Wei Jun ("the Author"). All rights reserved.**
 >
-> This skill ("Red-Blue Loop") is proprietary software licensed, not sold. By typing `I AGREE`, you enter into a legally binding agreement with the Author. If you do not agree, do not use this skill.
+> By typing `I AGREE`, you enter a legally binding agreement. If you do not agree, do not use this skill.
 >
-> **1. GRANT OF LICENCE** — Limited, personal, non-exclusive, non-transferable, revocable licence for your own security review work.
-> **2. ATTRIBUTION (MANDATORY)** — Any output shared with third parties must credit: *"Security audit powered by Red-Blue Loop by Joven Lee."*
+> **1. GRANT** — Personal, non-exclusive, non-transferable licence for your own work.
+> **2. ATTRIBUTION (MANDATORY)** — Any output shared with third parties must credit: *"Quality audit powered by Red-Blue Loop by Joven Lee."*
 > **3. PROHIBITED** — Selling, sublicensing, AI training use, removing copyright notices, competitive use.
-> **4. NO WARRANTY** — Provided "as is". Not a substitute for professional security assessment.
+> **4. NO WARRANTY** — Not a substitute for professional security or QA assessment.
 > **5. ENFORCEMENT** — Breach revokes your licence. Enforceable in SG, EU, UK, US, MY.
 >
 > **Type `I AGREE` to accept and proceed.**
@@ -53,49 +54,64 @@ CC BY-NC-ND 4.0 · https://creativecommons.org/licenses/by-nc-nd/4.0/
 
 ---
 
-## What this skill does
+## What this skill covers
 
-The red team and blue team run in a **closed simulation loop** — not a one-shot scan.
+Red-Blue Loop is not a security scanner. It is a **quality simulation loop** across three domains:
+
+| Domain | Red Team asks | Blue Team proposes |
+|--------|--------------|-------------------|
+| 🔴 **Security** | What can be attacked, exploited, or abused? | Patches, hardening, access controls |
+| 🟡 **Functional** | Does the code actually do what it's supposed to? | Bug fixes, edge case handling, error paths |
+| 🔵 **UI / UX** | Is this interface logical, intuitive, and user-friendly? | Flow improvements, missing feedback, confusing interactions |
+
+Every scan covers all three domains simultaneously. A finding can be a SQL injection, a wrong output from a calculation, or a button that doesn't explain what it does — all are first-class issues.
+
+---
+
+## The simulation loop
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SIMULATION LOOP (up to 1 hour)               │
-│                                                                 │
-│   ┌──────────┐     findings     ┌──────────┐                   │
-│   │          │ ──────────────── │          │                   │
-│   │ RED TEAM │                  │ BLUE TEAM│                   │
-│   │          │ ◄──────────────  │          │                   │
-│   └──────────┘   proposed fixes └──────────┘                   │
-│         │             (simulation only — real code untouched)   │
-│         │                                                       │
-│    re-scan on                                                   │
-│    simulated state                                              │
-│         │                                                       │
-│         └─── new issues? → loop again                          │
-│              no new Critical/High? → CONVERGED                  │
-└─────────────────────────────────────────────────────────────────┘
-                           ↓
-              FULL SESSION REPORT (after time limit / convergence)
-                           ↓
-              USER APPROVAL UI (approve · reject · reason per item)
-                           ↓
-              APPLY APPROVED FIXES TO REAL CODE
+                    ┌─────────────────────────────────────────┐
+                    │                                         │
+                    ▼                                         │
+              RED TEAM SCAN ──► [real-time learning] ──► EVOLVED PATTERNS
+                    │                                         ▲
+                    │ findings                                │
+                    ▼                                         │
+              BLUE TEAM PROPOSE ──► [real-time learning] ────┘
+                    │
+                    │ changes applied to simulation
+                    ▼
+              SIMULATION ENVIRONMENT (your real code is never touched)
+                    │
+                    │ re-scan
+                    └─────────────────────────────────────────┘
+                    
+              When convergence or time limit:
+                    │
+                    ▼
+              FULL SESSION REPORT
+                    │
+                    ▼
+              APPROVAL UI  (approve · reject · reason per item)
+                    │
+                    ▼
+              APPLY TO REAL CODE
 ```
 
-**Key principle:** Blue team never touches your real code during the loop.
-They work in a sandbox (git worktree or temp copy). Red team re-scans the sandbox
-to validate fixes and find new issues introduced by those fixes. The loop continues
-until all Critical/High issues are resolved in simulation, or the time limit is hit.
-Only after the user reviews and approves the full report does anything land in real code.
+**Real-time learning:** the skill does not wait until the end to learn. Every new pattern
+discovered in iteration N is immediately written into the scan prompt for iteration N+1.
+Each pass is smarter than the last because the skill is continuously updating itself
+as the loop runs.
 
 ---
 
 ## Operation Modes
 
-| Mode | When | Agent work |
-|------|------|------------|
-| **SOLO** | Any Claude Code instance | Sequential scan/fix iterations |
-| **SWARM** | Any `delegate_task`-capable framework | Parallel red + blue agents per iteration |
+| Mode | Requirements | Parallelism |
+|------|-------------|-------------|
+| **SOLO** | Any Claude Code instance | Sequential iterations |
+| **SWARM** | Any `delegate_task` framework | Parallel agents per iteration |
 | **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 Auto-detect:
@@ -109,25 +125,20 @@ else                    → SOLO mode
 
 ## Simulation Environment
 
-The blue team works in an isolated sandbox, never touching real code.
+Blue team works in an isolated sandbox. Real code is never modified during the loop.
 
-**Option A — Git worktree (preferred, requires git repo):**
+**Git repos (preferred):**
 ```bash
 git worktree add ~/.redblue/sim/{round_id} -b redblue-sim/{round_id}
 ```
-Blue team edits files in `~/.redblue/sim/{round_id}/`.
-Red team reads from the same worktree.
-On approval: `git checkout main`, cherry-pick or merge approved changes.
 
-**Option B — Temp copy (for non-git projects):**
+**Non-git projects:**
 ```bash
 cp -r {project_path} ~/.redblue/sim/{round_id}/
 ```
-Blue team edits files in `~/.redblue/sim/{round_id}/`.
-Red team reads from the same copy.
-On approval: copy approved files back to original paths.
 
-Both options are safe — the original codebase is never modified during the loop.
+Blue team edits files inside the simulation. Red team reads from the same path.
+On approval: changed files are copied/merged into the real project.
 
 ---
 
@@ -135,51 +146,29 @@ Both options are safe — the original codebase is never modified during the loo
 
 ```
 ~/.redblue/
-  rounds/{round_id}.json          ← session state: all iterations, findings, proposals
-  sim/{round_id}/                 ← sandboxed simulation environment
-  user-profile.json               ← your approval patterns (never published)
-  learning-vault.json             ← confirmed recurring patterns across sessions
-  skill-evolution.log             ← every change this skill has made to itself
-  sync-remotes.json               ← git remotes to push skill updates to
+  rounds/{round_id}.json     ← full session state: iterations, findings, proposals
+  sim/{round_id}/            ← sandboxed simulation environment
+  live-patterns.json         ← patterns discovered THIS session (feeds next iteration)
+  user-profile.json          ← your approval patterns (never published)
+  learning-vault.json        ← patterns confirmed across multiple sessions
+  skill-evolution.log        ← every self-update this skill has made
+  sync-remotes.json          ← git remotes to push to after evolution
 ```
+
+**`live-patterns.json`** is the real-time learning buffer. It is created at session start
+and written to after every iteration. Patterns here feed into the next iteration's
+scan prompt immediately. At session end, confirmed patterns graduate to `learning-vault.json`
+and then to the skill's own `## EVOLVED PATTERNS` section.
 
 ---
 
 ## Scope Configuration
 
-Replace this table with your system paths. See `scope.example.yaml` for a template.
+Replace this table with your own system paths. See `scope.example.yaml` for a template.
 
 | System | Path | Has UI? |
 |--------|------|---------|
 | *(add your systems here)* | | |
-
----
-
-## Session State Schema
-
-`~/.redblue/rounds/{round_id}.json`:
-```json
-{
-  "round_id": "redblue-2026-05-14-01",
-  "started_at": "ISO",
-  "time_limit_minutes": 60,
-  "mode": "NEXUS|SWARM|SOLO",
-  "sim_path": "~/.redblue/sim/redblue-2026-05-14-01/",
-  "status": "running|converged|time_limit|pending_approval|applied",
-  "iterations": [
-    {
-      "iteration": 1,
-      "red_findings": [],
-      "blue_proposals": [],
-      "resolved_from_prior": [],
-      "newly_introduced": [],
-      "remaining": []
-    }
-  ],
-  "final_report": null,
-  "user_decisions": {}
-}
-```
 
 ---
 
@@ -190,15 +179,17 @@ Replace this table with your system paths. See `scope.example.yaml` for a templa
 ### Phase 0 — Initialise Session
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
-2. Detect mode.
-3. Load user profile (Phase 0b) and EVOLVED PATTERNS.
-4. Record `started_at` timestamp. Session runs until `started_at + time_limit` or convergence.
-5. **Create simulation environment:**
+2. Detect mode (NEXUS / SWARM / SOLO).
+3. Load user profile (Phase 0b).
+4. Load `## EVOLVED PATTERNS` from this file.
+5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
+6. Create simulation environment:
    ```
-   if git repo → git worktree add ~/.redblue/sim/{round_id} -b redblue-sim/{round_id}
-   else        → cp -r {project_path} ~/.redblue/sim/{round_id}/
+   git repo  → git worktree add ~/.redblue/sim/{round_id} -b redblue-sim/{round_id}
+   non-git   → cp -r {project_path} ~/.redblue/sim/{round_id}/
    ```
-6. Initialise `~/.redblue/rounds/{round_id}.json` with `status: "running"`.
+7. Initialise `~/.redblue/rounds/{round_id}.json`.
+8. Record `started_at`. Session runs until `started_at + time_limit` or convergence.
 
 ---
 
@@ -209,387 +200,468 @@ Load `~/.redblue/user-profile.json` (create if missing):
 {
   "rounds_completed": 0,
   "stack_signature": [],
-  "approval_rates": { "critical": 1.0, "high": 1.0, "medium": 1.0, "low": 1.0, "info": 0.0 },
+  "domain_priorities": { "security": 1.0, "functional": 1.0, "ux": 1.0 },
+  "approval_rates": { "critical": 1.0, "high": 1.0, "medium": 1.0, "low": 1.0 },
   "skipped_categories": [],
   "preferred_agents": null,
   "avg_rating": null
 }
 ```
 
-Apply: downweight low-approval categories in report, use stack signature as scan hint,
-use preferred_agents to override default agent count.
+Apply:
+- `domain_priorities` → weight how many agents cover each domain
+- `approval_rates.medium < 0.3` → summarise medium findings, don't enumerate
+- `skipped_categories` → scan agents flag these at info level only
+- `stack_signature` → injected as hint into scan prompts
 
 ---
 
 ### Phase 1 — Red Team Scan
 
-**Scan target:** simulation environment (`~/.redblue/sim/{round_id}/`).
-On iteration 1 this is a copy of the real code. On subsequent iterations it reflects
-all blue team changes proposed so far.
+**Scan target:** `~/.redblue/sim/{round_id}/`
+On iteration 1 this is a copy of the real project.
+On iteration N it reflects all blue team changes from prior iterations.
 
-**NEXUS/SWARM:** N parallel scan agents, toolset `["files"]`.
-**SOLO:** sequential scan passes.
+**Load into every scan prompt:**
+1. `## EVOLVED PATTERNS` from this file (permanent knowledge)
+2. `~/.redblue/live-patterns.json` (patterns discovered in this session so far)
 
-**Scan agent prompt:**
+**NEXUS/SWARM:** three specialist agents run in parallel — one per domain.
+**SOLO:** three sequential passes — security, functional, UX — on each subsystem.
+
+---
+
+#### Phase 1a — Security Scan
+
 ```
 You are a red-team security analyst.
-Scan target: {sim_path}
-Stack hint: {stack_signature}
-Iteration: {N} of this session
+Scan: {sim_path}/{subsystem}
+Stack: {stack_signature}
+Iteration: {N}
 
 Threat model: STRIDE + OWASP Top 10 + LLM-specific risks
+(prompt injection, trust boundary bypass, memory poisoning, tool hijacking)
 
-EVOLVED PATTERNS — check these first (confirmed recurring issues):
-{## EVOLVED PATTERNS section}
+EVOLVED PATTERNS (permanent):
+{## EVOLVED PATTERNS}
 
-For every issue found — bugs, vulnerabilities, and improvement opportunities — output:
+LIVE PATTERNS (discovered this session — check these especially):
+{live-patterns.json}
+
+Report every security finding as:
 {
-  "id": "{round_id}-I{iteration}-{SUBSYSTEM}-{NNN}",
-  "type": "bug|vulnerability|enhancement",
+  "id": "{round_id}-I{N}-SEC-{NNN}",
+  "domain": "security",
+  "type": "vulnerability",
   "severity": "critical|high|medium|low|info",
   "confidence": "high|medium|low",
-  "category": "STRIDE/OWASP ref or enhancement category",
+  "category": "STRIDE/OWASP ref",
   "title": "short name",
   "file": "path:line",
-  "description": "what it is",
+  "description": "technical detail",
   "reproduction_steps": ["step1", "step2"],
-  "impact": "what an attacker gains, or what breaks, or what improves",
-  "suggestion": "one-sentence direction",
+  "impact": "what an attacker gains",
+  "suggestion": "one-sentence fix direction",
   "cvss_estimate": 0.0,
   "layman": "plain English — what does this mean for a non-technical person?"
 }
-
-Report ALL findings. Do NOT fix anything. Do NOT modify any file.
+Do NOT fix anything. Do NOT modify files.
 ```
 
 ---
 
-### Phase 1b — UI / Browser QA Scan
-
-For subsystems with `Has UI? = Yes`, run a browser scan on the simulation's frontend.
-**NEXUS/SWARM:** dedicated UI-QA agent `["browser", "files"]`.
-**SOLO:** browser pass after code scan.
+#### Phase 1b — Functional QA Scan
 
 ```
-Navigate {FRONTEND_URL}.
-1. Attempt protected pages without login.
-2. Log in, walk all pages, map every form.
-3. Test XSS: <script>alert(1)</script> and "><img src=x onerror=alert(1)>
-4. Inspect network: CSRF, CORS, unencrypted POST.
-5. Flag: missing errors, stack traces, exposed sensitive data.
-6. Output same JSON. Add "ui_path": navigation path to reach this finding.
+You are a functional QA engineer.
+Scan: {sim_path}/{subsystem}
+Stack: {stack_signature}
+Iteration: {N}
+
+Review for:
+- Logic errors: conditions, calculations, data transformations that produce wrong output
+- Edge cases: empty inputs, nulls, boundary values, concurrent access, large datasets
+- Error handling: unhandled exceptions, missing fallbacks, silent failures
+- Integration correctness: API contracts, data schema mismatches, state inconsistencies
+- Regression risk: changes that could break adjacent features
+
+LIVE PATTERNS: {live-patterns.json}
+
+Report every functional issue as:
+{
+  "id": "{round_id}-I{N}-FN-{NNN}",
+  "domain": "functional",
+  "type": "bug|regression_risk|missing_handling",
+  "severity": "critical|high|medium|low|info",
+  "confidence": "high|medium|low",
+  "title": "short name",
+  "file": "path:line",
+  "description": "what is wrong and what should happen instead",
+  "reproduction_steps": ["step1", "step2"],
+  "impact": "what breaks or produces wrong output",
+  "suggestion": "one-sentence fix direction",
+  "layman": "plain English explanation"
+}
+Do NOT fix anything.
 ```
 
 ---
 
-### Phase 1c — Self-Scan Overseer Protocol
+#### Phase 1c — UI / UX Scan
 
-**When scanning AI system core files:**
-Run normal scan + a second independent pass from fresh context.
-Diff results. Anything in pass 2 only → potential blind spot → escalate.
-Record `overseer_signoff` and `blind_spots` in session state.
+For subsystems with `Has UI? = Yes`.
+**NEXUS/SWARM:** dedicated browser agent `["browser", "files"]`.
+**SOLO:** browser pass.
+
+```
+You are a UX researcher and QA engineer.
+Target: {FRONTEND_URL}
+Iteration: {N}
+
+Review for:
+- User flow logic: are steps in a sensible order? Can users get stuck?
+- Missing feedback: actions with no confirmation, loading states, error messages
+- Confusing interactions: labels that don't explain what they do, ambiguous buttons
+- Accessibility: keyboard navigation, contrast, screen reader landmarks
+- Consistency: does the UI behave predictably across different sections?
+- Dead ends: pages or states users can reach but cannot escape from
+- Data visibility: is sensitive data exposed? Is the right data surfaced at the right time?
+
+Also check for frontend security (XSS, auth bypass, exposed stack traces).
+
+LIVE PATTERNS: {live-patterns.json}
+
+For each issue:
+{
+  "id": "{round_id}-I{N}-UX-{NNN}",
+  "domain": "ux",
+  "type": "flow|feedback|consistency|accessibility|security",
+  "severity": "critical|high|medium|low|info",
+  "title": "short name",
+  "ui_path": "steps to reach this state",
+  "description": "what is wrong and why it matters to the user",
+  "impact": "user confusion, lost actions, failed tasks",
+  "suggestion": "one-sentence improvement direction",
+  "layman": "plain English explanation"
+}
+Do NOT fix anything.
+```
+
+---
+
+#### Phase 1d — Self-Scan Overseer Protocol
+
+When scanning AI system core files: run independent second pass from fresh context.
+Diff results. Pass 2 only → potential blind spot → escalate.
+Record `overseer_signoff` in session state.
+
+---
+
+### ★ REAL-TIME LEARNING (between every iteration)
+
+**This runs after Phase 1 and before Phase 2, every iteration.**
+
+Do not wait until the end of the session to learn. Update immediately.
+
+**Step 1 — Extract new patterns from this iteration's findings:**
+For every finding with `confidence: high`:
+- What class of issue is this? (e.g. "missing null check on user-supplied path")
+- Is this class already in `## EVOLVED PATTERNS` or `live-patterns.json`?
+- If not → add to `live-patterns.json`:
+  ```json
+  {
+    "pattern": "short name",
+    "domain": "security|functional|ux",
+    "rule": "one-sentence prevention rule",
+    "check_for": "what to look for in code or UI",
+    "discovered_iteration": {N},
+    "occurrences_this_session": 1
+  }
+  ```
+- If already present → increment `occurrences_this_session`
+
+**Step 2 — Inject live patterns into next iteration's scan prompt:**
+The Phase 1 agent prompts include `{live-patterns.json}` directly.
+This means iteration N+1 agents already know what N found and scan for it specifically.
+
+**Step 3 — Qualify for graduation:**
+After the session, any live pattern with `occurrences_this_session >= 2` graduates
+to `learning-vault.json`. Patterns appearing across 3+ separate sessions graduate
+to `## EVOLVED PATTERNS` in this skill file.
+
+This is autonomous and continuous — no human action required.
 
 ---
 
 ### Phase 2 — Blue Team Propose (Simulation)
 
-Blue team receives the red team findings. They propose and apply fixes **inside the
+Blue team receives findings from Phase 1. They apply proposed changes **inside the
 simulation environment only**. Real code is never touched.
 
-**NEXUS/SWARM:** parallel fix agents per finding cluster (file-locked).
+**NEXUS/SWARM:** parallel agents per domain cluster (file-locked).
 **SOLO:** sequential fix passes.
 
-**Blue team agent prompt:**
 ```
-You are a blue-team engineer working in a SIMULATION ENVIRONMENT.
+You are a blue-team engineer working INSIDE THE SIMULATION ONLY.
 Location: {sim_path}
-Your job: propose and apply fixes for these findings: {finding list}
+Fix these findings: {finding list by domain}
 
 IMPORTANT:
-- You ARE editing files — but only inside {sim_path}
-- The original project at {project_path} must NOT be touched
+- Edit files in {sim_path} — NEVER in {project_path}
 - Fix root cause, not symptoms
-- Also note any enhancements you can make while in the relevant code
+- For UX findings: describe the change in clear UI terms
+  (layout, copy, flow change) alongside any code change
+- For functional findings: handle the edge case explicitly; do not paper over it
+- For security findings: fix the root cause; do not just sanitise at the surface
+- Also note any improvement opportunities you see while in the relevant code
 - Run py_compile on every Python file you touch (inside sim only)
-- After each change, describe: file, line, what changed, why, expected outcome
 
-For each proposal, output:
+Output per change:
 {
   "proposal_id": "{finding_id}-FIX",
   "finding_id": "{finding_id}",
+  "domain": "security|functional|ux",
   "type": "fix|enhancement",
   "file": "path:line",
   "description": "what you changed and why",
   "expected_outcome": "what should be true after this change",
-  "code_before": "snippet",
-  "code_after": "snippet",
-  "py_compile": "PASS|N/A",
+  "code_before": "snippet (or UI description for UX changes)",
+  "code_after": "snippet (or UI description for UX changes)",
+  "py_compile": "PASS|N/A|FAIL",
   "confidence": "high|medium|low"
 }
 ```
 
-Blue team also identifies enhancements: things that aren't bugs but would improve
-security posture, code quality, or resilience. These are flagged as `type: enhancement`.
-
 ---
 
-### Phase 3 — Red Re-Scan (Post-Fix Validation)
+### Phase 3 — Red Re-Scan + Delta
 
-Red team scans the simulation again — now with blue team's changes applied.
+Red team rescans the simulation (now with blue team's changes).
+All three domain scans repeat. Live patterns are already updated from Phase 1 learning.
 
-**Purpose:**
-1. Verify which findings from Phase 1 are now resolved
-2. Detect any **new issues introduced by blue team fixes**
-3. Assess whether enhancements were applied cleanly
-
-**Iteration delta analysis:**
+**Compute iteration delta:**
 ```
-resolved = findings from iteration N-1 that no longer appear
-remaining = findings from iteration N-1 that still appear
-newly_introduced = findings in iteration N not present in N-1
+resolved         = findings from I(N-1) no longer present in I(N)
+remaining        = findings from I(N-1) still present
+newly_introduced = findings in I(N) not in I(N-1)
 ```
-
-Write delta to session state under `iterations[N]`.
 
 **Convergence check:**
 ```
-if len([f for f in remaining + newly_introduced if f.severity in ["critical", "high"]]) == 0:
-    → CONVERGED — proceed to Phase 4
-else if time_elapsed >= time_limit:
-    → TIME LIMIT — proceed to Phase 4
-else:
-    → LOOP AGAIN — back to Phase 2 with updated findings
+open_critical_high = [f for f in remaining + newly_introduced
+                      if f.severity in ["critical", "high"]]
+
+if len(open_critical_high) == 0  → CONVERGED → Phase 4
+elif time_elapsed >= time_limit  → TIME LIMIT → Phase 4
+else                             → loop back to Phase 1
 ```
 
----
-
-### Phase 3b — Loop Progress Update
-
-After each iteration, post a brief status:
+**Status update after each iteration:**
 ```
-Iteration {N} complete.
-→ Resolved: {X} issues  |  Remaining: {Y}  |  Newly introduced: {Z}
-→ {N} critical/high still open — continuing loop
-→ Estimated iterations remaining: {estimate}
-→ Time elapsed: {MM:SS} / {time_limit}
+Iteration {N} complete  [{elapsed} / {limit}]
+  Security  → {X} resolved · {Y} remaining · {Z} new
+  Functional → {X} resolved · {Y} remaining · {Z} new
+  UX/UI     → {X} resolved · {Y} remaining · {Z} new
+  Live patterns learned this session: {N}
+  → {open_critical_high} critical/high still open
 ```
 
 ---
 
 ### Phase 4 — Full Session Report
 
-Generated after convergence or time limit. This is the complete record of the
-entire simulation session — not just one scan.
+Generated after convergence or time limit. Covers the entire session.
 
 ```markdown
 # RED-BLUE LOOP SESSION REPORT
-**Session:** {round_id}  **Duration:** {elapsed}  **Mode:** {mode}
-**Iterations:** {N}  **Outcome:** CONVERGED / TIME LIMIT
+Session: {round_id} · Duration: {elapsed} · Iterations: {N}
+Mode: {mode} · Outcome: CONVERGED / TIME LIMIT
 
 ---
 
-## SUMMARY
+## OVERVIEW
 
-| | Start of session | End of simulation |
-|-|-----------------|-------------------|
+|  | Session start | End of simulation |
+|--|--------------|-------------------|
 | Critical | {N} | {N} |
 | High | {N} | {N} |
 | Medium | {N} | {N} |
 | Low | {N} | {N} |
-| Enhancements identified | — | {N} |
 
-**Risk delta:** ↓ {X}% reduction in critical/high across {N} iterations
+Breakdown by domain:
+  Security:   {N} found · {N} resolved in sim · {N} remaining
+  Functional: {N} found · {N} resolved in sim · {N} remaining
+  UX/UI:      {N} found · {N} resolved in sim · {N} remaining
 
----
-
-## PROPOSED FIXES ({N} total)
-
-For each proposed fix:
-
-### FIX {proposal_id}
-**Finding:** {title} ({severity}) · {file}
-**Root cause:** {description}
-**What was changed:** {code_before → code_after summary}
-**Why:** {explanation in plain English}
-**Validation:** py_compile {PASS|N/A} · Red re-scan: {resolved/not resolved}
-**Confidence:** {high|medium|low}
+Patterns learned this session (live): {N}
+Patterns qualifying for EVOLVED PATTERNS: {N}
 
 ---
 
-## REMAINING ISSUES ({N})
+## PROPOSED FIXES  ({N} total)
 
-Issues not fully resolved within the session time limit:
+[One section per proposal, grouped by domain]
 
-| ID | Severity | Title | File | Why not resolved |
-|----|----------|-------|------|-----------------|
-...
+### {proposal_id} · {domain} · {severity}
+Finding: {title} — {file}
+What this means: {layman}
+Root cause: {description}
+Change: {code_before → code_after or UI description}
+Why: {explanation}
+Validation: py_compile {result} · Re-scan: {resolved / remaining}
+Confidence: {high|medium|low}
 
 ---
 
 ## ENHANCEMENTS ({N})
+[Improvements identified by blue team beyond the reported findings]
 
-Improvements identified by blue team (not bugs, but improvements):
+---
 
-| ID | Area | Title | Effort | Impact |
-|----|------|-------|--------|--------|
-...
+## REMAINING ISSUES ({N})
+[Issues not resolved within the session]
 
 ---
 
 ## ISSUES INTRODUCED BY FIXES ({N})
-
-New issues that blue team's proposed fixes created:
-
-| ID | Severity | Title | Introduced by fix | Status |
-|----|----------|-------|-------------------|--------|
-...
+[New issues caused by blue team changes]
 
 ---
 
 ## ITERATION HISTORY
 
-| Iteration | Resolved | Remaining | New | Time |
-|-----------|----------|-----------|-----|------|
-| 1 | 0 | {N} | — | 0:00 |
-| 2 | {N} | {N} | {N} | {MM:SS} |
+| # | Sec resolved | Fn resolved | UX resolved | New issues | Patterns learned | Time |
+|---|-------------|------------|-------------|------------|-----------------|------|
 ...
 
 ---
 
-## OVERSEER NOTES
-{Any blind spots or self-scan conflicts found}
+## WHAT THE SKILL LEARNED THIS SESSION
+[New live patterns discovered — qualifying for EVOLVED PATTERNS]
 
 ---
 
-⚠ NO CHANGES HAVE BEEN APPLIED TO YOUR CODE.
-Everything above is from the simulation environment.
+⚠ NOTHING HAS BEEN APPLIED TO YOUR CODE.
+Everything above is from the simulation.
 Review each item below and submit your decisions.
 ```
 
 ---
 
-### Phase 5 — User Approval UI
+### Phase 5 — Approval UI
 
-**This is the only phase that requires user action.**
+**The only phase requiring user input.**
 
-POST the full report to `/api/security/rounds` for the Security Review UI.
-If UI is not available, present the report as structured text and wait for input.
+POST full report to `/api/security/rounds` for the Security Review UI.
+Fallback: present as structured text, wait for input.
 
 **Per-item decisions:**
 - **Approve** → will be applied from simulation to real code
-- **Reject** → discarded
-- **Defer** → noted, carried to next session
-- **Reason** field on every decision
+- **Reject** → discarded, reason recorded
+- **Defer** → carried to next session
 
-**Round-level actions:**
-- `APPROVE ALL` → apply everything approved
-- `APPROVE CRITICAL+HIGH` → only severity-filtered items
-- `SKIP SESSION` → discard simulation, nothing applied
+**Round-level:**
+- `APPROVE ALL` / `APPROVE CRITICAL+HIGH` / `SKIP SESSION`
 
-The agent explains each item in plain English before the user decides.
-If the user asks "why does this matter?" — answer in one sentence, no jargon.
+The agent explains every item in plain English before the user decides.
+If the user asks "why does this matter?" — one sentence, no jargon.
 
 ---
 
-### Phase 6 — Apply Approved Changes to Real Code
+### Phase 6 — Apply Approved Changes
 
 **Only after user submits decisions.**
 
 For each approved proposal:
-
-1. **Git worktree path:** copy the changed file from `~/.redblue/sim/{round_id}/{file}` to `{project_path}/{file}`
-2. **Temp copy path:** same file copy operation
-3. Run `py_compile` on all Python files copied
-4. If any file fails compile: halt that file's application, flag to user
-5. After all files applied, run a **final verification scan** on real code:
-   ```
-   Quick re-scan of all modified files to confirm no regressions
-   and that approved fixes are present as expected.
-   Report: APPLIED / MISSING / REGRESSED per proposal.
-   ```
-6. Clean up simulation: `git worktree remove ~/.redblue/sim/{round_id}` or `rm -rf`
+1. Copy changed file from `{sim_path}/{file}` to `{project_path}/{file}`
+2. `py_compile` all Python files copied
+3. If any file fails: halt that file, flag to user
+4. Run **final verification scan** on modified real files:
+   - Confirm approved findings are resolved
+   - Confirm no regressions introduced
+   - Report APPLIED / MISSING / REGRESSED per proposal
+5. Clean up: `git worktree remove {sim_path}` or `rm -rf {sim_path}`
 
 ---
 
-### Phase 7 — Self-Improvement Engine
+### Phase 7 — Autonomous Post-Session Evolution
 
-After every session:
+Runs automatically. No user action required.
 
-**7a — Learning vault**
-For every Critical/High fix that was approved AND applied:
+**7a — Graduate live patterns to learning vault:**
+Any `live-patterns.json` entry with `occurrences_this_session >= 2`:
 ```json
 {
-  "id": "{finding_id}",
-  "round": "{round_id}",
-  "violation": "root cause in one sentence",
-  "what_should_have_happened": "prevention rule",
-  "fixed": true,
-  "iterations_to_resolve": {N},
-  "verification_due": "{today + 7 days ISO}"
+  "pattern": "{name}",
+  "domain": "{domain}",
+  "rule": "{prevention rule}",
+  "check_for": "{grep/description}",
+  "sessions_seen": 1,
+  "first_seen": "{round_id}",
+  "last_seen": "{round_id}"
 }
 ```
 
-**7b — Update user profile**
-- Approval rates per severity (running average)
+**7b — Graduate to EVOLVED PATTERNS:**
+Any learning vault entry with `sessions_seen >= 3`:
+→ append to `## EVOLVED PATTERNS` in this skill file immediately
+
+**7c — Mark stale / false-positive patterns:**
+`sessions_seen` not incremented in 5+ sessions → `status: dormant`
+Marked as false positive in 2+ sessions → `status: false-positive` with note
+
+**7d — Fix the workflow itself:**
+- Phase 1 scan consistently missed a class → add `also check:` hint to Phase 1
+- Phase 2 fix consistently introduced new bugs → add WARNING to Phase 2
+- UX findings consistently not approved → reduce UX scan depth next session
+  (update `user-profile.json → domain_priorities.ux`)
+
+**7e — Update user profile:**
+- Approval rates per severity and per domain (running average)
 - Skipped categories (rejected 3+ sessions in a row)
 - Stack signature (from file paths of approved findings)
-- Preferred agent count (average of rated ≥ 4 sessions)
+- Domain priorities (from approval rates per domain)
 
-**7c — Evolve patterns**
-- Detect violations appearing 3+ times in learning vault
-- Add to EVOLVED PATTERNS if not already present
-- Mark patterns dormant (not seen in 5+ sessions)
-- Mark patterns false-positive (FP in 2+ sessions)
-
-**7d — Fix the workflow**
-- Scan missed a class → add `also check:` to Phase 1 prompt
-- Blue team fix consistently introduced new bugs → add WARNING to Phase 2
-- Convergence taking too many iterations → increase red scan depth hint
-
-**7e — NEXUS mode**
+**7f — NEXUS mode:**
 - Write updated skill via `nexus_scribe`
 - Save session summary to Nexus long-term memory via `nexus_mind.save()`
 
-**7f — Auto-sync to remotes**
-Read `~/.redblue/sync-remotes.json`, push evolved skill to all configured remotes.
+**7g — Auto-sync to remotes:**
+Push evolved skill to all remotes in `~/.redblue/sync-remotes.json`.
 
 ---
 
 ### Phase 8 — Start Next Session
 
-- Start Phase 0 again (continuous operation).
-- Adjust agent count based on prior session:
-  - Critical findings at end of session > 5 → +2 scan agents
-  - Zero Critical found at start → −1 (min 3/1)
-  - Convergence took > 8 iterations → +2 scan agents (not finding fast enough)
-  - User rejected > 50% of proposals → review scan focus with user before next session
+Start Phase 0 immediately (continuous operation).
+Carry forward:
+- Unresolved findings from this session (pre-loaded into iteration 1)
+- All patterns from EVOLVED PATTERNS (already in skill file)
+- Updated user profile
+
+Adjust agent count:
+- Critical > 5 at end of session → +2 scan agents
+- Zero Critical found at start → −1 (min 3/1)
+- Convergence took > 8 iterations → +2 scan agents
+- User rejected > 50% of proposals → review scope with user before restarting
 
 ---
 
 ## Invocation
 
 ```
-/redblue                        full scope, loop until convergence or 1 hour
-/redblue {subsystem}            scope to one subsystem
-/redblue ui                     include browser QA scan
-/redblue 30m                    custom time limit (e.g. 30 minutes)
-/redblue report only            show last session report without new scan
-/redblue apply approved         jump to Phase 6 (apply pre-decided proposals)
-/redblue solo                   force SOLO mode
-/redblue profile                show current user-profile.json
-/redblue evolve                 self-improvement pass only, no new scan
+/redblue                   full scope, loop until convergence or 1 hour
+/redblue {subsystem}       single subsystem
+/redblue 30m               custom time limit
+/redblue security          security domain only
+/redblue functional        functional QA only
+/redblue ux                UI/UX evaluation only
+/redblue report only       show last session report
+/redblue apply approved    jump to Phase 6
+/redblue solo              force SOLO mode
+/redblue profile           show user-profile.json
+/redblue evolve            run post-session evolution without a new scan
 ```
-
----
-
-## Publishing Checklist
-
-- [ ] Replace SCOPE CONFIGURATION with your own system paths
-- [ ] Confirm `~/.redblue/` is writable
-- [ ] Set up `~/.redblue/sync-remotes.json` for your own remotes
-- [ ] `user-profile.json` is local only — never committed
-- [ ] Security Review UI (`server/security.py` + `client/SecurityReview.tsx`) optional
-- [ ] No secrets or personal paths in this file
 
 ---
 
@@ -599,10 +671,11 @@ Read `~/.redblue/sync-remotes.json`, push evolved skill to all configured remote
 |---------|--------|
 | 1.0 | Initial — scan → approve → fix |
 | 2.0 | Security Review UI |
-| 2.1 | Overseer Protocol, Goal Declaration, publishability |
-| 3.0 | SOLO mode, self-improvement engine, EVOLVED PATTERNS |
-| 4.0 | User profile, NEXUS mode, auto-sync, self-fixing workflow |
-| 5.0 | **Complete redesign** — simulation loop architecture. Blue team works in sandbox, red team re-scans iteratively, convergence detection, full session report after time limit, approval gate at end not start |
+| 2.1 | Overseer Protocol, Goal Declaration |
+| 3.0 | SOLO mode, end-of-session self-improvement |
+| 4.0 | User profile, NEXUS mode, auto-sync |
+| 5.0 | Simulation loop architecture — blue team works in sandbox |
+| 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 
 ---
 
@@ -610,73 +683,65 @@ Read `~/.redblue/sync-remotes.json`, push evolved skill to all configured remote
 
 ## EVOLVED PATTERNS
 
-> Maintained by the self-improvement engine. Scan agents check every entry here
-> before looking for anything else. Only this section and targeted Phase hints
-> are written by self-improvement — everything above is stable workflow.
+> Written by the self-improvement engine. Fed into every scan prompt.
+> Real-time discoveries live in `~/.redblue/live-patterns.json` during a session
+> and graduate here after appearing in 3+ separate sessions.
 
 ---
 
 ### PATTERN: Hardcoded Secret Fallback
-**Detected:** pre-5.0  **Occurrences:** 6  **Status:** active
-**Rule:** Never fallback for secrets. `os.environ.get("KEY", "default")` → raise RuntimeError if missing.
+**Domain:** security  **Sessions:** 6+  **Status:** active
+**Rule:** Never fallback for secrets. Raise RuntimeError if env var missing.
 **Check for:** `os.environ.get(` with non-None second arg containing secret/key/token/password
-**Auto-flag:** yes
 
 ---
 
 ### PATTERN: Missing Auth Decorator on Route
-**Detected:** pre-5.0  **Occurrences:** 8  **Status:** active
-**Rule:** Every route accessing user data or performing actions must have an auth guard.
+**Domain:** security  **Sessions:** 8+  **Status:** active
+**Rule:** Every route touching user data must have an auth guard.
 **Check for:** `@router.get|@router.post|@app.route` not followed by `Depends(` or `@login_required`
-**Auto-flag:** yes
 
 ---
 
 ### PATTERN: Path Traversal via User Input
-**Detected:** pre-5.0  **Occurrences:** 4  **Status:** active
+**Domain:** security  **Sessions:** 4+  **Status:** active
 **Rule:** `Path.resolve()` + verify result starts with expected base.
-**Check for:** `os.path.join(` or `Path(base) /` with user input and no containment check
-**Auto-flag:** yes
-
----
-
-### PATTERN: SSH StrictHostKeyChecking Disabled
-**Detected:** pre-5.0  **Occurrences:** 2  **Status:** active
-**Rule:** Never `StrictHostKeyChecking=no`. Use `yes` + explicit `UserKnownHostsFile`.
-**Check for:** `StrictHostKeyChecking=no` in any subprocess or shell call
-**Auto-flag:** yes
+**Check for:** `os.path.join(` with user input and no containment check after
 
 ---
 
 ### PATTERN: Shell Injection via f-string
-**Detected:** pre-5.0  **Occurrences:** 3  **Status:** active
+**Domain:** security  **Sessions:** 3+  **Status:** active
 **Rule:** Never interpolate user input into shell commands. Use parameterised args lists.
-**Check for:** `subprocess.run(f"` | `os.system(f"` | `python3 -c` with variable interpolation
-**Auto-flag:** yes
+**Check for:** `subprocess.run(f"` | `os.system(f"` | variable interpolation in shell strings
 
 ---
 
 ### PATTERN: CORS Substring Match
-**Detected:** pre-5.0  **Occurrences:** 2  **Status:** active
+**Domain:** security  **Sessions:** 2+  **Status:** active
 **Rule:** Exact allowlist set for CORS. `'domain.com' in origin` allows `evil-domain.com`.
 **Check for:** `in origin` or `in request.origin` as CORS gate
-**Auto-flag:** yes
-
----
-
-### PATTERN: WebSocket Auth After Accept
-**Detected:** pre-5.0  **Occurrences:** 1  **Status:** active
-**Rule:** Authenticate BEFORE `await ws.accept()`. Close with 1008 on failure.
-**Check for:** `await.*accept()` before auth check in WebSocket connect handlers
-**Auto-flag:** yes
 
 ---
 
 ### PATTERN: Internal Service Binding to 0.0.0.0
-**Detected:** pre-5.0  **Occurrences:** 5  **Status:** active
+**Domain:** security  **Sessions:** 5+  **Status:** active
 **Rule:** Internal services → `127.0.0.1`. Never `0.0.0.0`. Never `debug=True` in production.
 **Check for:** `host="0.0.0.0"` in server startup
-**Auto-flag:** yes
+
+---
+
+### PATTERN: Action With No User Feedback
+**Domain:** ux  **Sessions:** 3+  **Status:** active
+**Rule:** Every user action must produce visible confirmation, error, or loading state.
+**Check for:** form submit handlers, API calls, and delete/save actions with no toast/alert/spinner
+
+---
+
+### PATTERN: Unhandled Empty State
+**Domain:** functional  **Sessions:** 3+  **Status:** active
+**Rule:** Every list or data-driven UI component must handle the empty/null/zero-items case.
+**Check for:** `.map(` or list renders without a preceding null/empty check and fallback
 
 ---
 
