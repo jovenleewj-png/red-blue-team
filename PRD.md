@@ -2,7 +2,7 @@
 ## Red-Blue Loop — Autonomous Quality Simulation Skill
 
 **Author:** Joven Lee Wei Jun · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
-**Version:** 6.1 · © 2026 Joven Lee Wei Jun
+**Version:** 7.0 · © 2026 Joven Lee Wei Jun
 
 ---
 
@@ -27,30 +27,36 @@ The hardest part of remediation isn't finding the bug — it's verifying the fix
 
 A simulation environment changes the dynamic entirely. If fixes are proposed and validated in a sandbox — and the red team re-scans that sandbox — you get a closed feedback loop that converges on a correct solution before anything touches real code. The human only enters the loop at the end, reviewing a complete, already-validated set of changes.
 
-### Why three domains?
+### Why nine domains?
 
-A product is only as good as all three of its quality layers:
+A product is only as good as all of its quality layers. Most tools cover one or two. Red-Blue Loop covers all nine — and only activates the ones relevant to your specific project:
 
-| Domain | Question it answers |
-|--------|-------------------|
-| **Security** | Can someone exploit this? |
-| **Functional correctness** | Does it actually work correctly? |
-| **UI/UX quality** | Would a real user understand and trust this? |
+| Domain | Question it answers | Auto-detects when |
+|--------|-------------------|--------------------|
+| **Security** | Can someone exploit this? | Always |
+| **Agent** | Does the AI agent behave correctly under all conditions? | Agent/LLM code detected |
+| **Skill** | Do skills trigger correctly and handle every edge case? | Skills directory detected |
+| **Infra** | Is the deployment safe and production-ready? | Infra config detected |
+| **Tech Stack** | Are dependencies correct, compatible, and secure? | Dependency manifest detected |
+| **Eval** | Do evaluation harnesses actually measure what they claim? | Eval harness detected |
+| **Functional** | Does it actually work correctly? | Always |
+| **UI/UX** | Would a real user understand and trust this? | Web frontend detected |
+| **Product** | Does it do what it's supposed to do, end to end? | Always |
 
-Fixing a security hole in a product that doesn't work, or a product that's impossible to use, solves only one third of the problem.
+Fixing a security hole in a product that doesn't work, an agent that silently ignores tool errors, or an eval harness that produces meaningless benchmarks — each of those is a different class of failure. Red-Blue Loop catches all of them in the same session.
 
 ---
 
 ## Goals
 
 1. **Simulation-first** — blue team never touches real code during the loop
-2. **Three-domain** — every scan covers security, functionality, and UI/UX quality
+2. **Nine-domain** — every scan covers all active domains: security, agent, skill, infra, tech stack, eval, functional, UI/UX, and product quality
 3. **Convergence-driven** — loop continues until all Critical/High issues are resolved in simulation
 4. **Real-time learning** — patterns discovered in iteration N are injected into iteration N+1 immediately
 5. **Full-session visibility** — at the end, the user sees the entire journey across all domains
 6. **Approval-gated** — zero changes applied to real code without explicit per-item human decision
 7. **Explainable** — every item explained in plain English at approval time
-8. **Self-improving** — the skill learns from each session and gets better across all three domains
+8. **Self-improving** — the skill learns from each session and gets better across all active domains
 9. **Portable** — single Claude Code instance is sufficient; multi-agent scales up when available
 
 ---
@@ -137,30 +143,37 @@ flowchart TD
 - FR-08: Simulation path must be fully isolated — no writes to real project path during loop
 - FR-09: Clean up simulation after approved changes are applied
 
-### Red team scan — three domains
-- FR-10: Scan all subsystems in scope per iteration across all three domains
-- FR-11: Security domain: cover STRIDE threat model, OWASP Top 10, LLM-specific risks
-- FR-12: Functional QA domain: cover logic errors, edge cases, error handling, data integrity
-- FR-13: UI/UX domain: cover user flows, feedback states, accessibility, consistency
-- FR-14: Run browser/UI scan for subsystems with web frontends
-- FR-15: Run independent overseer pass for AI system core files
-- FR-16: Inject EVOLVED PATTERNS and live-patterns.json into every scan prompt
-- FR-17: Output structured JSON finding per issue with domain tag
-- FR-18: Include plain-English layman explanation per finding
+### Red team scan — nine domains
+- FR-10: Auto-detect active domains from project structure at session start; cache result
+- FR-11: Scan all subsystems in scope per iteration across all active domains in parallel
+- FR-12: Security domain (always): STRIDE threat model, OWASP Top 10, LLM-specific risks
+- FR-13: Agent domain: tool call correctness, trust violations, prompt injection, loop safety, graceful degradation
+- FR-14: Skill domain: trigger correctness, protocol completeness, edge cases, inter-skill conflicts
+- FR-15: Infra domain: secrets in config, exposed ports, privilege escalation, CI/CD safety
+- FR-16: Tech Stack domain: CVEs in dependencies, deprecated APIs, version incompatibilities, misconfigs
+- FR-17: Eval domain: metric validity, eval leakage, scoring correctness, result reproducibility
+- FR-18: Functional domain (always): logic errors, edge cases, error handling, integration correctness
+- FR-19: UI/UX domain: user flows, feedback states, accessibility, consistency, responsive layout
+- FR-20: Product domain (always): feature completeness, acceptance criteria, user journey coherence
+- FR-21: Run browser/UI scan for subsystems with web frontends (UI/UX + Product)
+- FR-22: Run independent overseer pass for AI system core files (Agent + Skill domains)
+- FR-23: Inject EVOLVED PATTERNS and live-patterns.json into every scan prompt
+- FR-24: Output structured JSON finding per issue with domain tag
+- FR-25: Include plain-English layman explanation per finding
 
 ### Real-time learning (between every Phase 1 and Phase 2)
-- FR-19: After each Phase 1 scan, extract new patterns from findings
-- FR-20: Write extracted patterns to `~/.redblue/live-patterns.json` immediately
-- FR-21: Inject live-patterns.json content into the next iteration's scan prompt
-- FR-22: live-patterns.json accumulates across iterations within the same session
+- FR-26: After each Phase 1 scan, extract new patterns from findings across all active domains
+- FR-27: Write extracted patterns to `~/.redblue/live-patterns.json` immediately
+- FR-28: Inject live-patterns.json content into the next iteration's scan prompt
+- FR-29: live-patterns.json accumulates across iterations within the same session
 
 ### Iteration delta
-- FR-23: After each re-scan, compute: resolved / remaining / newly-introduced
-- FR-24: Convergence condition: zero Critical/High in `remaining + newly_introduced`
-- FR-25: Time limit is checked BEFORE starting a new iteration — never mid-iteration
-- FR-25b: When the time limit is reached, the current iteration always completes in full (Phase 1 → learning → Phase 2 → Phase 3 → delta) before exiting to Phase 4
-- FR-25c: Loop exits on convergence OR after the time-limit iteration completes — whichever comes first
-- FR-26: Record per-iteration delta in session state
+- FR-30: After each re-scan, compute per domain: resolved / remaining / newly-introduced
+- FR-31: Convergence condition: zero Critical/High in `remaining + newly_introduced` across all active domains
+- FR-32: Time limit is checked BEFORE starting a new iteration — never mid-iteration
+- FR-32b: When the time limit is reached, the current iteration always completes in full (Phase 1 → learning → Phase 2 → Phase 3 → delta) before exiting to Phase 4
+- FR-32c: Loop exits on convergence OR after the time-limit iteration completes — whichever comes first
+- FR-33: Record per-iteration delta in session state
 
 ### Blue team (simulation)
 - FR-27: Blue agents write actual code changes into the simulation environment only
@@ -329,7 +342,8 @@ flowchart TD
 | User approval rate | ≥ 60% of proposed fixes approved |
 | Pattern growth | ≥ 1 new EVOLVED PATTERN per 5 sessions |
 | False positive rate after 10 sessions | < 15% |
-| Domain coverage | All three domains (security + functional + UX) represented in ≥ 90% of sessions |
+| Domain auto-detection accuracy | Correct active domain set detected in ≥ 95% of sessions |
+| Domain coverage breadth | Average of ≥ 4 active domains per session |
 | Real-time learning uptake | live-patterns.json populated within iteration 1 in ≥ 80% of sessions |
 
 ---

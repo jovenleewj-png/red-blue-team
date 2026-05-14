@@ -1,6 +1,6 @@
 # Red-Blue Loop
 
-**A continuous simulation loop that finds issues, proposes fixes, and re-validates — across security, functionality, and UX — before anything touches your real code.**
+**A continuous simulation loop that finds issues, proposes fixes, and re-validates — across security, agents, skills, infrastructure, tech stack, evals, functionality, UI/UX, and product quality — before anything touches your real code.**
 
 > **by Joven Lee** · [linkedin.com/in/jovenleeweijun](https://www.linkedin.com/in/jovenleeweijun/) · [x.com/jovenleeweijun](https://x.com/jovenleeweijun)
 > © 2026 Joven Lee Wei Jun · Licensed CC BY-NC-ND 4.0
@@ -11,11 +11,19 @@
 
 Imagine hiring a quality team that works in a parallel universe — a perfect copy of your codebase where they can try fixes, break things, rebuild them, and check if their fixes introduced new problems. Only after they've converged on a complete solution do they present it to you for a final sign-off. Your real code is never touched until you say so.
 
-That's what Red-Blue Loop does — not just for security, but across three quality domains:
+That's what Red-Blue Loop does — across **eight quality domains**, auto-detected from your project:
 
-- **Security** — vulnerabilities, auth issues, injection risks, exposed secrets
-- **Functional correctness** — does your code actually do what it's supposed to? edge cases, error handling, logic gaps
-- **UI/UX quality** — is the product user-friendly and logical? missing feedback, confusing flows, accessibility
+| Domain | What it checks |
+|--------|---------------|
+| 🔴 **Security** | Vulnerabilities, auth issues, injection risks, exposed secrets |
+| 🤖 **Agent** | AI agent behaviour — tool calls, trust boundaries, prompt injection, memory integrity |
+| 🧠 **Skill** | Skill file correctness — triggers, protocol completeness, edge cases, inter-skill conflicts |
+| 🏗️ **Infra** | Deployment configs, secrets in config, exposed ports, CI/CD safety, health checks |
+| 📦 **Tech Stack** | Vulnerable dependencies, deprecated APIs, version incompatibilities, framework misconfig |
+| 📊 **Eval** | Evaluation harness validity, metric correctness, eval leakage, result reproducibility |
+| 🟡 **Functional** | Logic errors, edge cases, error handling, integration correctness |
+| 🔵 **UI / UX** | User flows, missing feedback states, accessibility, consistency |
+| 🛒 **Product** | Feature completeness, acceptance criteria gaps, user journey coherence |
 
 **In plain English, here's how a session works:**
 
@@ -44,7 +52,7 @@ flowchart TD
 
     subgraph LOOP [" ── Simulation Loop — up to 1 hour ──"]
         direction TB
-        RED["🔴 Phase 1 — Red Team Scan\n1a · Security · STRIDE + OWASP + LLM risks\n1b · Functional QA · logic + edge cases + errors\n1c · UI/UX · flow + feedback + accessibility"]
+        RED["🔴 Phase 1 — Red Team Scan  (active domains only)\n1a · Security · STRIDE + OWASP + LLM risks\n1b · Agent · tool calls + trust + injection + loops\n1c · Skill · triggers + protocol + edge cases\n1d · Infra · configs + secrets + ports + CI/CD\n1e · Tech Stack · CVEs + deprecated APIs + misconfig\n1f · Eval · metric validity + leakage + reproducibility\n1g · Functional · logic + edge cases + error handling\n1h · UI/UX · flow + feedback + accessibility\n1i · Product · completeness + journeys + acceptance"]
         LEARN["🧠 Real-Time Learning\nNew patterns from this iteration\nwritten to live-patterns.json\nInjected into NEXT scan prompt"]
         BLUE["🔵 Phase 2 — Blue Team Fix\nWrite changes to simulation ONLY\nFile-lock · py_compile · code diff"]
         DELTA["📊 Phase 3 — Iteration Delta\nResolved · Remaining · Newly introduced"]
@@ -67,15 +75,21 @@ flowchart TD
     EVO --> A
 ```
 
-### Three quality domains
+### Eight quality domains
 
-Every scan covers all three domains in parallel:
+Every scan activates all domains relevant to your project (auto-detected from project structure):
 
-| Domain | What red team looks for |
-|--------|------------------------|
-| **Security** | STRIDE threats, OWASP Top 10, LLM-specific risks (prompt injection, trust bypass, tool hijacking), hardcoded secrets, auth gaps |
-| **Functional QA** | Logic errors, unhandled edge cases, missing error handling, empty state bugs, incorrect outputs, data integrity issues |
-| **UI/UX** | Actions with no user feedback, confusing navigation flows, missing loading/error states, inaccessible elements, inconsistent patterns |
+| Domain | Auto-detects when | What red team looks for |
+|--------|-------------------|------------------------|
+| 🔴 **Security** | Always | STRIDE, OWASP Top 10, LLM-specific risks, secrets, auth gaps |
+| 🤖 **Agent** | `agent/`, `openai`, `anthropic` imports | Tool misuse, trust violations, prompt injection, loop safety, graceful degradation |
+| 🧠 **Skill** | `skills/`, `SKILL.md` | Trigger correctness, protocol completeness, edge cases, versioning |
+| 🏗️ **Infra** | Dockerfile, docker-compose, k8s, `.env` | Secrets in config, exposed ports, privilege escalation, CI/CD safety |
+| 📦 **Tech Stack** | `package.json`, `requirements.txt` | CVEs, deprecated APIs, version incompatibilities, misconfigs |
+| 📊 **Eval** | `eval/`, `benchmark/`, test harnesses | Metric validity, eval leakage, scoring bugs, reproducibility |
+| 🟡 **Functional** | Always | Logic errors, edge cases, error handling, integration correctness |
+| 🔵 **UI / UX** | `frontend_url` in scope config | Flow logic, missing feedback, accessibility, consistency |
+| 🛒 **Product** | Always | Feature completeness, acceptance gaps, user journey coherence |
 
 ### Real-time learning
 
