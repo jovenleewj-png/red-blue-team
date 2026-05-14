@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.1"
+version: "7.2"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -885,44 +885,75 @@ For each approved proposal:
 
 ### Phase 7 — Autonomous Post-Session Evolution
 
-Runs automatically. No user action required.
+Runs automatically at the end of every session. No user action required.
 
-**7a — Graduate live patterns to learning vault:**
-Any `live-patterns.json` entry with `occurrences_this_session >= 2`:
-```json
-{
-  "pattern": "{name}",
-  "domain": "{domain}",
-  "rule": "{prevention rule}",
-  "check_for": "{grep/description}",
-  "sessions_seen": 1,
-  "first_seen": "{round_id}",
-  "last_seen": "{round_id}"
-}
+**7a — Graduate ALL new live patterns to learning vault:**
+Every entry in `live-patterns.json` discovered this session is written to
+`~/.redblue/learning-vault.json` immediately — no occurrence threshold.
+If the pattern already exists in the vault, increment `sessions_seen` and update `last_seen`.
+
+**7b — Graduate ALL new vault patterns to EVOLVED PATTERNS:**
+Every vault entry added or incremented this session:
+→ append (or update) the matching `### PATTERN:` block in `## EVOLVED PATTERNS`
+   in this skill file immediately — no sessions threshold required.
+This means every completed run contributes at least one new pattern.
+
+Format for each new EVOLVED PATTERN block:
+```
+### PATTERN: {TITLE_SNAKE_CASE}
+**Domain:** {domain}  **Sessions:** {sessions_seen}  **Status:** active  **Graduated:** {YYYY-MM-DD}
+**Rule:** {one-sentence prevention rule}
+**Check for:** {grep pattern or description of what to look for}
+**Fix direction:** {one-sentence fix direction}
 ```
 
-**7b — Graduate to EVOLVED PATTERNS:**
-Any learning vault entry with `sessions_seen >= 3`:
-→ append to `## EVOLVED PATTERNS` in this skill file immediately
+**7c — Generate Pre-Push Evolution Report:**
+Before any git push, print a human-readable summary:
 
-**7c — Mark stale / false-positive patterns:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 RED-BLUE LOOP — SKILL EVOLUTION REPORT
+Session: {round_id}  ·  {YYYY-MM-DD}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PATTERNS ADDED TO EVOLVED PATTERNS THIS RUN ({N} new):
+  + {PATTERN_TITLE}  [{domain}] — {one-line summary}
+  + ...
+
+PATTERNS UPDATED (seen in prior sessions) ({N} updated):
+  ↑ {PATTERN_TITLE}  [{domain}] — now seen {N} sessions
+
+VERSION: {old} → {new}
+
+PUSHING TO:
+  • {repo name}: {remote URL}
+
+Note: credentials, personal paths, and private-framework content
+are stripped from the public repo before push.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**7d — Bump skill version and push:**
+- Increment patch version: `7.1` → `7.2`, `7.2` → `7.3`, etc.
+- Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns graduated from {round_id}`
+- Push to all configured remotes in `~/.redblue/sync-remotes.json`
+  (public copy must have private-framework references stripped — SOLO+SWARM only)
+
+**7e — Mark stale / false-positive patterns:**
 `sessions_seen` not incremented in 5+ sessions → `status: dormant`
 Marked as false positive in 2+ sessions → `status: false-positive` with note
 
-**7d — Fix the workflow itself:**
+**7f — Fix the workflow itself:**
 - Phase 1 scan consistently missed a class → add `also check:` hint to Phase 1
 - Phase 2 fix consistently introduced new bugs → add WARNING to Phase 2
 - UX findings consistently not approved → reduce UX scan depth next session
   (update `user-profile.json → domain_priorities.ux`)
 
-**7e — Update user profile:**
+**7g — Update user profile:**
 - Approval rates per severity and per domain (running average)
 - Skipped categories (rejected 3+ sessions in a row)
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
-
-**7f — Auto-sync to remotes:**
-Push evolved skill to all remotes in `~/.redblue/sync-remotes.json`.
 
 ---
 
@@ -980,6 +1011,7 @@ Adjust agent count:
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
 | 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
+| 7.2 | **Every-run skill evolution** — Phase 7 now graduates all new patterns every session (no 3-session threshold); pre-push Evolution Report printed before each GitHub push; version auto-incremented each run |
 
 ---
 
