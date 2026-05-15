@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.0"
+version: "7.5"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -121,11 +121,8 @@ as the loop runs.
 |------|-------------|-------------|
 | **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
 | **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
-| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
-
 Auto-detect:
 ```
-nexus_scribe available       → NEXUS mode
 delegate_task or parallel
   tool calls available       → SWARM mode
 else                         → SOLO mode
@@ -199,9 +196,26 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
 2. Detect mode (NEXUS / SWARM / SOLO).
+   **2b. SWARM mode — load prior session context** (if agent memory available):
+   Load recent session summaries and cross-session pattern insights into scan context.
+   This gives iteration 1 the benefit of everything learned in prior sessions, not just EVOLVED PATTERNS.
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
 5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
+   **5b. Initialise `~/.redblue/sync-remotes.json`** if file does not exist:
+   ```json
+   { "remotes": [] }
+   ```
+   Supported format per remote entry:
+   ```json
+   [
+     { "name": "private", "type": "local-file", "path": "~/.claude/skills/red-blue-loop/SKILL.md" },
+     { "name": "public",  "type": "git-file",   "repo": "~/path/to/public-repo", "file": "SKILL.md",
+       "strip": ["internal-tool-names"] }
+   ]
+   ```
+   `type: git-file` remotes with `strip`: apply text substitutions before writing public copy, then commit+push.
+   Populate once; Phase 7h auto-pushes after every evolution run.
 6. **⛔ REPO HEALTH CHECK — MANDATORY BLOCKER. Run before creating simulation.**
 
    **6a — Untracked file audit:**
@@ -877,6 +891,13 @@ Confidence: {high|medium|low}
 
 ---
 
+## VAULT STATUS
+Patterns in `learning-vault.json`: {N total}
+  Active: {N}  ·  Near graduation (sessions_seen ≥ 2): {N}  ·  Dormant: {N}  ·  False-positive: {N}
+Run `/redblue vault` to see full vault contents and graduation progress.
+
+---
+
 ⚠ NOTHING HAS BEEN APPLIED TO YOUR CODE.
 Everything above is from the simulation.
 Review each item below and submit your decisions.
@@ -933,37 +954,109 @@ Any `live-patterns.json` entry with `occurrences_this_session >= 2`:
   "rule": "{prevention rule}",
   "check_for": "{grep/description}",
   "sessions_seen": 1,
+  "status": "active",
   "first_seen": "{round_id}",
   "last_seen": "{round_id}"
 }
 ```
 
-**7b — Graduate to EVOLVED PATTERNS:**
-Any learning vault entry with `sessions_seen >= 3`:
-→ append to `## EVOLVED PATTERNS` in this skill file immediately
+**7b — Graduate to EVOLVED PATTERNS (write guard):**
+Every session, for each `learning-vault.json` entry with `sessions_seen >= 3` and `status: active`:
 
-**7c — Mark stale / false-positive patterns:**
-`sessions_seen` not incremented in 5+ sessions → `status: dormant`
-Marked as false positive in 2+ sessions → `status: false-positive` with note
+1. **Duplicate check** — scan `## EVOLVED PATTERNS` for an existing block with the same `pattern` name.
+   - Found → update the `**Sessions:**` counter in that block. Do not append a second copy.
+   - Not found → proceed to step 2.
+2. **Validate** — entry must have all fields: `pattern`, `domain`, `rule`, `check_for`, `sessions_seen`.
+   Missing field → skip and log as `SKIPPED (incomplete)` in `skill-evolution.log`.
+3. **Stage** — write the formatted block to `~/.redblue/evolved-patterns-staging.md`:
+   ```markdown
+   ### PATTERN: {pattern}
+   **Domain:** {domain}  **Sessions:** {sessions_seen}  **Status:** active
+   **Rule:** {rule}
+   **Check for:** {check_for}
+   ```
+4. **Guard** — verify staging content does NOT contain the string `## EVOLVED PATTERNS`
+   (prevents section boundary corruption). If it does, abort and alert user.
+5. **Backup** — write `~/.redblue/skill-backup.md` from the current SKILL.md before touching it.
+6. **Insert** — append staged block immediately **before** the `*End of EVOLVED PATTERNS*` marker in SKILL.md.
+7. **Verify** — confirm `*End of EVOLVED PATTERNS*` marker still exists after write.
+   If missing: restore SKILL.md from `skill-backup.md` and alert user.
+8. **Log** — append to `~/.redblue/skill-evolution.log`:
+   `{timestamp} GRADUATED {pattern} [{domain}] from {round_id}`
 
-**7d — Fix the workflow itself:**
-- Phase 1 scan consistently missed a class → add `also check:` hint to Phase 1
-- Phase 2 fix consistently introduced new bugs → add WARNING to Phase 2
+**7c — Prune dormant and false-positive patterns:**
+- `sessions_seen` not incremented in 5+ sessions → set `status: dormant` in vault.
+- Marked as false-positive in 2+ sessions → set `status: false-positive` with `rejected_reason`.
+- For any vault entry transitioning to `dormant` or `false-positive`:
+  - Remove its `### PATTERN:` block from `## EVOLVED PATTERNS` in SKILL.md
+    (locate by matching the pattern name, remove from `### PATTERN: {name}` to the next `---`).
+  - Verify SKILL.md structure intact after removal (backup + verify as in 7b).
+  - Log: `{timestamp} PRUNED {pattern} ({status}) from {round_id}`
+
+**7d — Print Evolution Report and bump version:**
+Print before every push:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RED-BLUE EVOLUTION REPORT
+Session: {round_id}  ·  {YYYY-MM-DD}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PATTERNS ADDED ({N} new):
+  + {PATTERN_TITLE}  [{domain}] — {rule}
+
+PATTERNS UPDATED ({N} updated):
+  ↑ {PATTERN_TITLE}  — now seen {N} sessions
+
+PATTERNS PRUNED ({N} removed):
+  − {PATTERN_TITLE}  ({dormant|false-positive})
+
+VERSION: {old} → {new}
+
+PUSHING TO: {list of sync-remotes.json entries}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+Increment patch version in frontmatter: `7.4` → `7.5`, etc.
+Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session {round_id}`
+
+**7e — Fix the workflow itself:**
+- Phase 1 scan consistently missed a class → add `also check:` hint to that scan phase
+- Phase 2 fix consistently introduced new bugs → add WARNING to Phase 2 prompt
 - UX findings consistently not approved → reduce UX scan depth next session
   (update `user-profile.json → domain_priorities.ux`)
 
-**7e — Update user profile:**
+**7f — Update user profile:**
 - Approval rates per severity and per domain (running average)
 - Skipped categories (rejected 3+ sessions in a row)
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
 
-**7f — NEXUS mode:**
-- Write updated skill via `nexus_scribe`
-- Save session summary to Nexus long-term memory via `nexus_mind.save()`
+**7g — Agent memory + skill management (SWARM/NEXUS):**
 
-**7g — Auto-sync to remotes:**
-Push evolved skill to all remotes in `~/.redblue/sync-remotes.json`.
+*Memory (if agent memory available):*
+Save session summary so future sessions start with full context: findings total, patterns graduated, open critical findings, active domains.
+
+*Skill creation (new skills from vault patterns):*
+When `learning-vault.json` accumulates 5+ patterns clustering around a domain not covered by any existing skill in `~/.claude/skills/`:
+1. Identify the domain gap (e.g. "database migration safety", "rate limiting correctness").
+2. Scaffold a new skill file at `~/.claude/skills/{domain-slug}/SKILL.md` with:
+   - Trigger, description, scan phases tuned to the gap domain.
+   - The relevant vault patterns pre-loaded as `## EVOLVED PATTERNS`.
+   - Standard Red-Blue Loop phase structure (1 = scan, 2 = propose, 3 = re-scan, 4 = report).
+3. Notify user: *"New skill scaffolded: /{trigger}. Review at {path} before first use."*
+4. Log: `{timestamp} CREATED skill/{domain-slug} from {N} vault patterns [session {round_id}]`
+
+*Skill enhancement (improve existing skills from graduated patterns):*
+When Phase 7b graduates a pattern whose `domain` or `check_for` overlaps with an existing skill in `~/.claude/skills/`:
+1. Load that skill file and check its `## EVOLVED PATTERNS` section.
+2. If the pattern is absent: propose adding it.
+3. Apply the change (auto-apply if `user-profile.json → auto_enhance_skills: true`, else present diff for approval).
+4. Log: `{timestamp} ENHANCED {skill-name} with pattern [{pattern-name}] from redblue/{round_id}`
+
+**7h — Auto-sync to remotes:**
+For each entry in `~/.redblue/sync-remotes.json`:
+- `type: local-file` → copy updated SKILL.md directly to `path`.
+- `type: git-file` → write to `repo/file`; apply any `strip` substitutions before writing; then `git add`, `git commit`, `git push`.
+Log each push outcome to `skill-evolution.log`.
 
 ---
 
@@ -1003,6 +1096,8 @@ Adjust agent count:
 /redblue solo              force SOLO mode
 /redblue profile           show user-profile.json + active domain history
 /redblue evolve            run post-session evolution without a new scan
+/redblue vault             show learning-vault.json contents and graduation progress per pattern
+/redblue skills            show skill creation / enhancement suggestions from vault patterns
 ```
 
 ---
@@ -1022,6 +1117,7 @@ Adjust agent count:
 | 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
 | 7.4 | **Phase 0 Repo Health Check (MANDATORY BLOCKER)** — untracked file audit, import resolution check, deployment parity check. Simulation is blocked if untracked code files exist. Fixes root cause of missed bugs from incomplete repos. |
+| 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; NEXUS mode gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
 
 ---
 
