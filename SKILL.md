@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.5"
+version: "7.6"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -121,6 +121,7 @@ as the loop runs.
 |------|-------------|-------------|
 | **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
 | **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
+
 Auto-detect:
 ```
 delegate_task or parallel
@@ -162,13 +163,16 @@ On approval: changed files are copied/merged into the real project.
 
 ```
 ~/.redblue/
-  rounds/{round_id}.json     ← full session state: iterations, findings, proposals
-  sim/{round_id}/            ← sandboxed simulation environment
-  live-patterns.json         ← patterns discovered THIS session (feeds next iteration)
-  user-profile.json          ← your approval patterns (never published)
-  learning-vault.json        ← patterns confirmed across multiple sessions
-  skill-evolution.log        ← every self-update this skill has made
-  sync-remotes.json          ← git remotes to push to after evolution
+  rounds/{round_id}.json          ← full session state: iterations, findings, proposals
+  sim/{round_id}/                 ← sandboxed simulation environment
+  live-patterns.json              ← patterns discovered THIS session (feeds next iteration)
+  user-profile.json               ← your approval patterns (never published)
+  learning-vault.json             ← patterns confirmed across multiple sessions
+  skill-evolution.log             ← every self-update this skill has made (technical audit trail)
+  evolution-timeline.md           ← plain-English diary of how the skill has grown over time
+  skill-backup.md                 ← snapshot of SKILL.md before each write (one-step rollback)
+  evolved-patterns-staging.md     ← staging buffer used by the write guard (safe to delete)
+  sync-remotes.json               ← git remotes to push to after evolution
 ```
 
 **`live-patterns.json`** is the real-time learning buffer. It is created at session start
@@ -202,7 +206,19 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
 5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
-   **5b. Initialise `~/.redblue/sync-remotes.json`** if file does not exist:
+   **5b. Initialise persistent files** if not present:
+   - `~/.redblue/sync-remotes.json` → `{ "remotes": [] }`
+   - `~/.redblue/evolution-timeline.md` → create with header:
+     ```markdown
+     # Red-Blue Loop — Evolution Timeline
+     > Plain-English record of everything this skill has learned across sessions.
+     > Newest entries at the top.
+
+     ---
+     ```
+   - `~/.redblue/learning-vault.json` → `[]`
+
+   **Sync-remotes format** — `~/.redblue/sync-remotes.json`:
    ```json
    { "remotes": [] }
    ```
@@ -993,8 +1009,9 @@ Every session, for each `learning-vault.json` entry with `sessions_seen >= 3` an
   - Verify SKILL.md structure intact after removal (backup + verify as in 7b).
   - Log: `{timestamp} PRUNED {pattern} ({status}) from {round_id}`
 
-**7d — Print Evolution Report and bump version:**
-Print before every push:
+**7d — Print Evolution Report, Skill Growth Narrative, and bump version:**
+
+**Part 1 — Technical Evolution Report** (print before every push):
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RED-BLUE EVOLUTION REPORT
@@ -1015,6 +1032,60 @@ VERSION: {old} → {new}
 PUSHING TO: {list of sync-remotes.json entries}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+**Part 2 — Skill Growth Narrative (plain English, always shown):**
+Immediately after the technical report, print this block. Every line must be readable by someone who doesn't know what a pattern or vault is.
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠  WHAT RED-BLUE LOOP LEARNED THIS SESSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEW THINGS I'LL NOW CHECK FOR AUTOMATICALLY:
+  [For each pattern added to EVOLVED PATTERNS this session:]
+  • {layman explanation of what the pattern catches, e.g.:
+    "Missing login guards on routes — I'll now flag any page that handles
+     user data but doesn't first verify the user is logged in."}
+
+CHECKS THAT GOT STRONGER:
+  [For each pattern whose sessions_seen count increased:]
+  • "{pattern name}" — I've now confirmed this issue across {N} separate projects.
+    My confidence in catching it is {low (<3) → building / medium (3-5) → solid / high (6+) → very high}.
+
+CHECKS I RETIRED:
+  [For each pattern pruned this session:]
+  • "{pattern name}" — I haven't seen this in {N} scans. Retired to keep my checks sharp and relevant.
+  [If none: omit this section.]
+
+HOW I'VE GROWN:
+  • Permanent checks: {N before this session} → {N after}  {▲ N new  or  ▼ N retired  or  no change}
+  • Domains I'm sharpest in: {top 2-3 domains by pattern count}
+  • Sessions run on your codebase: {total rounds in ~/.redblue/rounds/}
+  • Issues found across all sessions: {sum of all findings across rounds}
+  • Issues resolved in simulation: {sum of resolved across rounds}
+
+[If this is the first session (N=1), replace HOW I'VE GROWN with:]
+  • This is my first session on this codebase. I start with {N} built-in checks.
+    Every scan makes me smarter about YOUR specific stack and risks.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Part 3 — Append to evolution timeline:**
+After printing the narrative, append an entry to `~/.redblue/evolution-timeline.md`:
+```markdown
+## {YYYY-MM-DD} · Session {round_id} · v{old} → v{new}
+
+**What I learned:** {bullet list of NEW THINGS I'LL NOW CHECK FOR, one line each}
+**What got stronger:** {bullet list of CHECKS THAT GOT STRONGER, one line each, or "nothing new"}
+**What I retired:** {bullet list or "nothing retired"}
+**Snapshot:** {N} permanent checks · {total sessions} sessions run · {total findings} issues found lifetime
+
+---
+```
+This file is append-only and becomes a readable diary of how the skill has evolved.
+Run `/redblue history` to display it at any time.
+
 Increment patch version in frontmatter: `7.4` → `7.5`, etc.
 Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session {round_id}`
 
@@ -1030,7 +1101,7 @@ Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session 
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
 
-**7g — Agent memory + skill management (SWARM/NEXUS):**
+**7g — Agent memory + skill management (SWARM):**
 
 *Memory (if agent memory available):*
 Save session summary so future sessions start with full context: findings total, patterns graduated, open critical findings, active domains.
@@ -1049,7 +1120,7 @@ When `learning-vault.json` accumulates 5+ patterns clustering around a domain no
 When Phase 7b graduates a pattern whose `domain` or `check_for` overlaps with an existing skill in `~/.claude/skills/`:
 1. Load that skill file and check its `## EVOLVED PATTERNS` section.
 2. If the pattern is absent: propose adding it.
-3. Apply the change (auto-apply if `user-profile.json → auto_enhance_skills: true`, else present diff for approval).
+3. Apply (auto-apply if `user-profile.json → auto_enhance_skills: true`, else present diff for approval).
 4. Log: `{timestamp} ENHANCED {skill-name} with pattern [{pattern-name}] from redblue/{round_id}`
 
 **7h — Auto-sync to remotes:**
@@ -1098,6 +1169,7 @@ Adjust agent count:
 /redblue evolve            run post-session evolution without a new scan
 /redblue vault             show learning-vault.json contents and graduation progress per pattern
 /redblue skills            show skill creation / enhancement suggestions from vault patterns
+/redblue history           show evolution-timeline.md — plain-English diary of how the skill has grown
 ```
 
 ---
@@ -1118,6 +1190,7 @@ Adjust agent count:
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
 | 7.4 | **Phase 0 Repo Health Check (MANDATORY BLOCKER)** — untracked file audit, import resolution check, deployment parity check. Simulation is blocked if untracked code files exist. Fixes root cause of missed bugs from incomplete repos. |
 | 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; NEXUS mode gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
+| 7.6 | **Plain-English Skill Growth Narrative** — after every session Phase 7d prints what was learned, what got stronger, what was retired, and running lifetime stats in plain language anyone can read; appends an entry to `evolution-timeline.md` (a persistent diary of the skill's growth); `/redblue history` command to replay the full timeline; storage layout updated with new files. |
 
 ---
 
