@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.3"
+version: "7.0"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -121,11 +121,14 @@ as the loop runs.
 |------|-------------|-------------|
 | **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
 | **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
+| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 Auto-detect:
 ```
-delegate_task or parallel tool calls available → SWARM mode
-else                                           → SOLO mode
+nexus_scribe available       → NEXUS mode
+delegate_task or parallel
+  tool calls available       → SWARM mode
+else                         → SOLO mode
 ```
 
 ## Platform Support
@@ -195,17 +198,51 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 ### Phase 0 — Initialise Session
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
-2. Detect mode (SWARM / SOLO).
+2. Detect mode (NEXUS / SWARM / SOLO).
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
 5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
-6. Create simulation environment:
+6. **⛔ REPO HEALTH CHECK — MANDATORY BLOCKER. Run before creating simulation.**
+
+   **6a — Untracked file audit:**
+   ```bash
+   git -C {project_path} status --short | grep '^\?\?' \
+     | grep -E '\.(py|js|ts|tsx|html|css|sh|yaml|yml)$|/$'
+   ```
+   If ANY untracked code files are found:
+   - **STOP. Do not create the simulation.**
+   - Print a BLOCKER report listing every untracked file.
+   - State explicitly: *"The simulation would be incomplete. These files exist in production but are invisible to the scan. Commit them first or the results are unreliable."*
+   - Wait for user to resolve (commit the files, or explicitly override with `/redblue --skip-health-check`).
+
+   **6b — Import resolution check (Python):**
+   For every tracked `.py` file, extract all `from X import` / `import X` statements where X is a local module (not stdlib/site-packages). Verify the resolved `.py` file exists in the repo.
+   ```bash
+   # Example: server.py has "from mailbox_routes import mailbox_bp"
+   # → check crm/dashboard/mailbox_routes.py exists in git ls-files
+   ```
+   Flag every unresolved local import as **CRITICAL** — it means live code depends on a file the simulation cannot see.
+
+   **6c — Deployment parity check (if remote configured):**
+   If a remote SSH host is known (from scope config, `.env`, or prior sessions):
+   ```bash
+   ssh {remote_host} "git -C {remote_path} status --short | grep '^\?\?'" 2>/dev/null
+   ```
+   Any untracked files on the remote that are also `.py/.js/.ts/.html` → flag as **HIGH**: *"Production has files not in the repo."*
+
+   **6d — Record health check result** in `~/.redblue/rounds/{round_id}.json`:
+   ```json
+   { "health_check": { "untracked_files": N, "broken_imports": N, "remote_drift": N, "passed": true|false } }
+   ```
+   If health check passes or is overridden → proceed.
+
+7. Create simulation environment:
    ```
    git repo  → git worktree add ~/.redblue/sim/{round_id} -b redblue-sim/{round_id}
    non-git   → cp -r {project_path} ~/.redblue/sim/{round_id}/
    ```
-7. Initialise `~/.redblue/rounds/{round_id}.json`.
-8. Record `started_at`. Session runs until `started_at + time_limit` or convergence.
+8. Initialise `~/.redblue/rounds/{round_id}.json`.
+9. Record `started_at`. Session runs until `started_at + time_limit` or convergence.
 
 ---
 
@@ -265,7 +302,7 @@ eval        → active if: eval/, benchmark/, evals.py, test harness found
 ux          → active if: frontend_url set in scope config OR web frontend detected
 ```
 
-**SWARM:** one specialist agent per active domain, all run in parallel.
+**NEXUS/SWARM:** one specialist agent per active domain, all run in parallel.
 **SOLO:** sequential passes, one per active domain, on each subsystem.
 
 ---
@@ -543,7 +580,7 @@ Do NOT fix anything.
 #### Phase 1h — UI / UX Scan
 
 *Active when ux domain is detected.*
-**SWARM:** dedicated browser agent `["browser", "files"]`.
+**NEXUS/SWARM:** dedicated browser agent `["browser", "files"]`.
 **SOLO:** browser pass.
 
 ```
@@ -669,7 +706,7 @@ This is autonomous and continuous — no human action required.
 Blue team receives findings from Phase 1. They apply proposed changes **inside the
 simulation environment only**. Real code is never touched.
 
-**SWARM:** parallel agents per domain cluster (file-locked).
+**NEXUS/SWARM:** parallel agents per domain cluster (file-locked).
 **SOLO:** sequential fix passes.
 
 ```
@@ -717,26 +754,25 @@ remaining        = findings from I(N-1) still present
 newly_introduced = findings in I(N) not in I(N-1)
 ```
 
-**Loop exit rule — time limit only, never early convergence:**
+**Convergence check:**
 ```
-if time_elapsed >= time_limit:
-    → TIME LIMIT reached.
-      Always complete the current iteration fully before stopping.
-      Never stop mid-round. Finish Phase 1 → learning → Phase 2 → Phase 3
-      so every open finding has a blue-team proposal and the delta is
-      consistent. Then → Phase 4.
+open_critical_high = [f for f in remaining + newly_introduced
+                      if f.severity in ["critical", "high"]]
+
+if len(open_critical_high) == 0:
+    → CONVERGED → Phase 4
+
+else if time_elapsed >= time_limit:
+    → TIME LIMIT reached — but always complete the current iteration fully.
+      Do not stop mid-round. Finish Phase 2 and Phase 3 for the current
+      iteration so every open finding has a blue-team proposal and the
+      delta is consistent.  Then → Phase 4.
+      This ensures the final report has no half-applied fixes or
+      inconsistent state — loose ends are always tied up before handoff.
 
 else:
-    → loop back to Phase 1 regardless of severity counts.
-      When Critical/High are resolved, continue on Medium → Low → Info.
-      The loop runs for the full time limit every time — no early exit.
+    → loop back to Phase 1
 ```
-
-**There is no convergence exit. The only exit is the time limit.**
-When Critical/High findings reach zero, the loop does NOT stop — it
-immediately starts the next iteration targeting Medium, then Low, then Info
-findings. This ensures every session extracts maximum value from the full
-time budget and the final report reflects the deepest possible scan.
 
 **Time limit is checked BEFORE starting a new iteration, not during one.**
 If the clock expires while an iteration is running, that iteration completes
@@ -886,75 +922,48 @@ For each approved proposal:
 
 ### Phase 7 — Autonomous Post-Session Evolution
 
-Runs automatically at the end of every session. No user action required.
+Runs automatically. No user action required.
 
-**7a — Graduate ALL new live patterns to learning vault:**
-Every entry in `live-patterns.json` discovered this session is written to
-`~/.redblue/learning-vault.json` immediately — no occurrence threshold.
-If the pattern already exists in the vault, increment `sessions_seen` and update `last_seen`.
-
-**7b — Graduate ALL new vault patterns to EVOLVED PATTERNS:**
-Every vault entry added or incremented this session:
-→ append (or update) the matching `### PATTERN:` block in `## EVOLVED PATTERNS`
-   in this skill file immediately — no sessions threshold required.
-This means every completed run contributes at least one new pattern.
-
-Format for each new EVOLVED PATTERN block:
-```
-### PATTERN: {TITLE_SNAKE_CASE}
-**Domain:** {domain}  **Sessions:** {sessions_seen}  **Status:** active  **Graduated:** {YYYY-MM-DD}
-**Rule:** {one-sentence prevention rule}
-**Check for:** {grep pattern or description of what to look for}
-**Fix direction:** {one-sentence fix direction}
+**7a — Graduate live patterns to learning vault:**
+Any `live-patterns.json` entry with `occurrences_this_session >= 2`:
+```json
+{
+  "pattern": "{name}",
+  "domain": "{domain}",
+  "rule": "{prevention rule}",
+  "check_for": "{grep/description}",
+  "sessions_seen": 1,
+  "first_seen": "{round_id}",
+  "last_seen": "{round_id}"
+}
 ```
 
-**7c — Generate Pre-Push Evolution Report:**
-Before any git push, print a human-readable summary:
+**7b — Graduate to EVOLVED PATTERNS:**
+Any learning vault entry with `sessions_seen >= 3`:
+→ append to `## EVOLVED PATTERNS` in this skill file immediately
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🧠 RED-BLUE LOOP — SKILL EVOLUTION REPORT
-Session: {round_id}  ·  {YYYY-MM-DD}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PATTERNS ADDED TO EVOLVED PATTERNS THIS RUN ({N} new):
-  + {PATTERN_TITLE}  [{domain}] — {one-line summary}
-  + ...
-
-PATTERNS UPDATED (seen in prior sessions) ({N} updated):
-  ↑ {PATTERN_TITLE}  [{domain}] — now seen {N} sessions
-
-VERSION: {old} → {new}
-
-PUSHING TO:
-  • {repo name}: {remote URL}
-
-Note: credentials, personal paths, and private-framework content
-are stripped from the public repo before push.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-**7d — Bump skill version and push:**
-- Increment patch version: `7.1` → `7.2`, `7.2` → `7.3`, etc.
-- Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns graduated from {round_id}`
-- Push to all configured remotes in `~/.redblue/sync-remotes.json`
-  (public copy must have private-framework references stripped — SOLO+SWARM only)
-
-**7e — Mark stale / false-positive patterns:**
+**7c — Mark stale / false-positive patterns:**
 `sessions_seen` not incremented in 5+ sessions → `status: dormant`
 Marked as false positive in 2+ sessions → `status: false-positive` with note
 
-**7f — Fix the workflow itself:**
+**7d — Fix the workflow itself:**
 - Phase 1 scan consistently missed a class → add `also check:` hint to Phase 1
 - Phase 2 fix consistently introduced new bugs → add WARNING to Phase 2
 - UX findings consistently not approved → reduce UX scan depth next session
   (update `user-profile.json → domain_priorities.ux`)
 
-**7g — Update user profile:**
+**7e — Update user profile:**
 - Approval rates per severity and per domain (running average)
 - Skipped categories (rejected 3+ sessions in a row)
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
+
+**7f — NEXUS mode:**
+- Write updated skill via `nexus_scribe`
+- Save session summary to Nexus long-term memory via `nexus_mind.save()`
+
+**7g — Auto-sync to remotes:**
+Push evolved skill to all remotes in `~/.redblue/sync-remotes.json`.
 
 ---
 
@@ -1006,13 +1015,13 @@ Adjust agent count:
 | 2.0 | Security Review UI |
 | 2.1 | Overseer Protocol, Goal Declaration |
 | 3.0 | SOLO mode, end-of-session self-improvement |
-| 4.0 | User profile, auto-sync |
+| 4.0 | User profile, NEXUS mode, auto-sync |
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
 | 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
-| 7.2 | **Every-run skill evolution** — Phase 7 now graduates all new patterns every session (no 3-session threshold); pre-push Evolution Report printed before each GitHub push; version auto-incremented each run |
+| 7.4 | **Phase 0 Repo Health Check (MANDATORY BLOCKER)** — untracked file audit, import resolution check, deployment parity check. Simulation is blocked if untracked code files exist. Fixes root cause of missed bugs from incomplete repos. |
 
 ---
 
@@ -1079,122 +1088,6 @@ Adjust agent count:
 **Domain:** functional  **Sessions:** 3+  **Status:** active
 **Rule:** Every list or data-driven UI component must handle the empty/null/zero-items case.
 **Check for:** `.map(` or list renders without a preceding null/empty check and fallback
-
----
-
-### PATTERN: Env Var Name Mismatch
-**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** The key passed to `os.getenv()` must exactly match the variable name in `.env`. A mismatch silently loads the insecure default in production.
-**Check for:** `os.environ.get("SOME_KEY", "default-secret")` — compare key name against every `.env` file. Add startup `RuntimeError` if value equals known default.
-
----
-
-### PATTERN: Trust Screening Partial Coverage
-**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** If a security screener guards some tool dispatch paths but not others, the unguarded paths are the attack surface.
-**Check for:** Every `registry.dispatch()` or tool execution site. Every one must route through the screener — no exceptions, no `pass` on screener failure.
-**Fix direction:** Extract screener call into a shared `_screened_dispatch()` helper. Fail-closed: `except: continue` (block), never `except: pass` (allow).
-
----
-
-### PATTERN: Unfiltered Tool Output Injected into LLM
-**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Web scrapes, memory reads, and any external tool output must be scanned for injection phrases before entering the LLM message list.
-**Check for:** Tool result strings appended to message arrays without a `_scan_for_threats()` call. Look at web.py, memory.py, file-read tools.
-**Fix direction:** Shared `_scan_content(text)` that redacts lines containing injection phrases. Apply at the tool-result boundary, not per-call-site.
-
----
-
-### PATTERN: Package Imported But Not in Requirements
-**Domain:** infra  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Every package imported at the top level of production code must appear in `requirements.txt`. Missing entries crash fresh deployments.
-**Check for:** Extract import names from `*.py`; diff against `requirements.txt`. Pay special attention to scheduler, messaging, and metrics packages.
-
----
-
-### PATTERN: Thread-Unsafe Singleton
-**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Module-level singletons with `if _x is None: _x = X()` are not thread-safe. Under concurrent requests two instances are created.
-**Check for:** `if _x is None:` followed by construction without a lock. Applies to database connections, task runners, scheduler instances.
-**Fix direction:** `_lock = threading.Lock()` at module level. Double-checked locking: `if _x is None: with _lock: if _x is None: _x = X()`
-
----
-
-### PATTERN: Async Silent Catch Hides Errors
-**Domain:** ux  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Every async API call in the frontend must set a visible error state on failure. Empty catch blocks leave users staring at a blank/frozen screen.
-**Check for:** `catch {}` or `catch { /* ignore */ }` or catch blocks that don't call `setError(...)` or equivalent.
-
----
-
-### PATTERN: Agent Loop Missing Wall-Clock Timeout
-**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** An iteration budget alone is not sufficient. Slow tool calls can exhaust the budget slowly or bypass it if the loop logic is wrong. A wall-clock timeout is mandatory.
-**Check for:** Agent loops that check iteration count but do not record `t0 = time.time()` and check `time.time() - t0 > MAX_SECONDS` each iteration.
-
----
-
-### PATTERN: Two-Step IDOR — Ownership Check Then Unguarded Fetch
-**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Checking ownership in step 1 and fetching data in step 2 is fragile. Any other code path calling step 2 directly bypasses ownership.
-**Check for:** Route handlers that check session/resource ownership then separately call a data-fetch function — verify the ownership result gates execution.
-**Fix direction:** Prefer a single atomic DB query joining ownership into the data fetch. If two steps unavoidable, assert ownership result is non-None before proceeding.
-
----
-
-### PATTERN: Trust Not Propagated to Sub-Agents
-**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** When a parent agent delegates a task, it must explicitly pass its trust level to the sub-agent. Without this, sub-agents default to lowest trust regardless of the parent's authorization.
-**Check for:** Any task delegation dispatch where the parent's trust level is not included in the args. Sub-agent always runs at lowest trust by default.
-**Fix direction:** Before dispatch: inject `_parent_trust = str(caller_trust_level)` into the args dict when calling a delegation tool.
-
----
-
-### PATTERN: Fail-Open Security Control
-**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Security controls that skip checks on error or missing configuration are fail-open — they grant access rather than deny it. All security gates must fail-closed.
-**Check for:** `try: screener_check() except: pass` — exception allows the call. `if token: verify() else: allow()` — no token allows the call. `if sig: check() else: allow()` — no signature allows the call.
-**Fix direction:** `except: continue` not `except: pass`. Missing required token → 403. Missing signature when token configured → 401.
-
----
-
-### PATTERN: Stream Tool-Calls Not Persisted to DB
-**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** When an LLM streaming loop processes `tool_use` blocks, those tool calls and their results must be written to the conversation DB — not just text content. Omitting them means session reload loses all tool call structure.
-**Check for:** `stream()` or equivalent streaming functions that write only `role=assistant/user` text messages. Look for the tool_use block handler — does it call `db.add_message()` with `tool_call_id` and `tool_name`?
-**Fix direction:** In the `tool_use` block handler inside `stream()`, add: `self._db.add_message(session_id, "tool", result_str, tool_call_id=block.id, tool_name=block.name)` after the tool call completes.
-
----
-
-### PATTERN: Async End-Session Not in Try/Finally
-**Domain:** functional  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Any session cleanup call (e.g. `end_session()`) inside a streaming loop must be in a `try/finally` block. If an exception fires before the cleanup call, the session record is left in a permanently incomplete state.
-**Check for:** `stream()` functions where `end_session()` or equivalent is called at the end of the try block but not in a finally. A timeout or tool error will skip it.
-**Fix direction:** Wrap the entire streaming block: `try: ... finally: self._db.end_session(session_id, end_reason)`. Set `end_reason` to `'timeout'` or `'error'` in except handlers.
-
----
-
-### PATTERN: Proxy Endpoint Missing User Scoping
-**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Internal proxy/relay endpoints that forward requests to other services must scope forwarded calls to the authenticated user's identity. Without scoping, any authenticated user can proxy requests on behalf of any other user.
-**Check for:** Proxy routes that extract the user from the JWT for logging/auth but do not inject `user_id` or equivalent into the forwarded request or filter the response by it.
-**Fix direction:** Extract `user_id` from the verified JWT token; include it as a header or query param in every forwarded request; reject or filter responses that return cross-user data.
-
----
-
-### PATTERN: Partial XML/HTML Tag Stripping
-**Domain:** security  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** Sanitizing only closing XML/HTML tags (e.g. `</tool_use>`) while leaving opening tags (e.g. `<tool_use>`) intact is incomplete — an attacker can still inject trust-bearing tags by crafting inputs without explicit closing tags.
-**Check for:** Sanitization functions that use `re.sub(r'</\w+>', ...)` without a corresponding `re.sub(r'<\w[^>]*>', ...)`. Also check for tag allowlists applied only at output, not at input.
-**Fix direction:** Strip (or escape) both opening and closing variants of any forbidden tag pattern. Prefer `html.escape()` on untrusted content before it enters any message that will be parsed as markup.
-
----
-
-### PATTERN: Delegation Trust Cap Bypassable via LLM Input
-**Domain:** agent  **Sessions:** 1  **Status:** active  **Graduated:** 2026-05-14
-**Rule:** The `_parent_trust` field used to cap sub-agent trust levels must be injected by the orchestrator, not accepted from the LLM's tool call input. If the LLM can supply `_parent_trust` in the tool args, it can self-elevate to any trust level.
-**Check for:** Any delegation tool dispatch where `_parent_trust` is read from the LLM-generated tool input dict rather than being overwritten by the orchestrator before dispatch.
-**Fix direction:** In the orchestrator dispatch site, always overwrite: `_dispatch_args["_parent_trust"] = str(getattr(self, '_trust_level', 'low'))` — this must happen AFTER copying block.input, not before, so the LLM-supplied value is clobbered.
 
 ---
 
