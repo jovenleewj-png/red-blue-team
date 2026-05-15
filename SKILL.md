@@ -121,9 +121,11 @@ as the loop runs.
 |------|-------------|-------------|
 | **SOLO** | Any Claude Code instance, Codex CLI, or ChatGPT | Sequential iterations |
 | **SWARM** | Any `delegate_task` framework or parallel tool calls | Parallel agents per iteration |
+| **NEXUS** | Nexus AI framework | Full parallel + Nexus memory + auto skill refinement |
 
 Auto-detect:
 ```
+[NEXUS-only — see private distribution] available       → [NEXUS-only — see private distribution]
 delegate_task or parallel
   tool calls available       → SWARM mode
 else                         → SOLO mode
@@ -200,8 +202,11 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
 2. Detect mode (NEXUS / SWARM / SOLO).
-   **2b. SWARM mode — load prior session context** (if agent memory available):
-   Load recent session summaries and cross-session pattern insights into scan context.
+   **2b. [NEXUS-only — see private distribution] — load Hermes memory** (if `[NEXUS-only — see private distribution]` available):
+   ```
+   [NEXUS-only — see private distribution].recall("redblue-sessions", limit=5)  → inject prior session summaries into scan context
+   [NEXUS-only — see private distribution].recall("redblue-patterns")           → augment live-patterns buffer with cross-session insights
+   ```
    This gives iteration 1 the benefit of everything learned in prior sessions, not just EVOLVED PATTERNS.
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
@@ -225,9 +230,9 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
    Supported format per remote entry:
    ```json
    [
-     { "name": "private", "type": "local-file", "path": "~/.claude/skills/red-blue-loop/SKILL.md" },
-     { "name": "public",  "type": "git-file",   "repo": "~/path/to/public-repo", "file": "SKILL.md",
-       "strip": ["internal-tool-names"] }
+     { "name": "nexus",  "type": "local-file", "path": "~/Desktop/Nexus/skills/red-blue-loop.md" },
+     { "name": "public", "type": "git-file",   "repo": "~/Desktop/red-blue-team", "file": "SKILL.md",
+       "strip": ["[NEXUS-only — see private distribution]", "[NEXUS-only — see private distribution]"] }
    ]
    ```
    `type: git-file` remotes with `strip`: apply text substitutions before writing public copy, then commit+push.
@@ -1101,15 +1106,25 @@ Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session 
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
 
-**7g — Agent memory + skill management (SWARM):**
+**7g — [NEXUS-only — see private distribution]: Hermes memory + skill management:**
 
-*Memory (if agent memory available):*
-Save session summary so future sessions start with full context: findings total, patterns graduated, open critical findings, active domains.
+*Memory (Hermes agent):*
+Save session summary so future sessions start with full context:
+```
+[NEXUS-only — see private distribution].save({
+  "key": "redblue-{round_id}",
+  "findings_total": N,
+  "findings_resolved": N,
+  "patterns_graduated": ["pattern1", "pattern2"],
+  "open_critical": ["title of unresolved critical/high findings"],
+  "domains_active": ["security", "functional", ...]
+})
+```
 
 *Skill creation (new skills from vault patterns):*
 When `learning-vault.json` accumulates 5+ patterns clustering around a domain not covered by any existing skill in `~/.claude/skills/`:
 1. Identify the domain gap (e.g. "database migration safety", "rate limiting correctness").
-2. Scaffold a new skill file at `~/.claude/skills/{domain-slug}/SKILL.md` with:
+2. Scaffold a new skill file via `[NEXUS-only — see private distribution]` at `~/.claude/skills/{domain-slug}/SKILL.md` with:
    - Trigger, description, scan phases tuned to the gap domain.
    - The relevant vault patterns pre-loaded as `## EVOLVED PATTERNS`.
    - Standard Red-Blue Loop phase structure (1 = scan, 2 = propose, 3 = re-scan, 4 = report).
@@ -1120,13 +1135,14 @@ When `learning-vault.json` accumulates 5+ patterns clustering around a domain no
 When Phase 7b graduates a pattern whose `domain` or `check_for` overlaps with an existing skill in `~/.claude/skills/`:
 1. Load that skill file and check its `## EVOLVED PATTERNS` section.
 2. If the pattern is absent: propose adding it.
-3. Apply (auto-apply if `user-profile.json → auto_enhance_skills: true`, else present diff for approval).
+3. Apply via `[NEXUS-only — see private distribution]` (auto-apply if `user-profile.json → auto_enhance_skills: true`, else present diff for approval).
 4. Log: `{timestamp} ENHANCED {skill-name} with pattern [{pattern-name}] from redblue/{round_id}`
 
 **7h — Auto-sync to remotes:**
 For each entry in `~/.redblue/sync-remotes.json`:
 - `type: local-file` → copy updated SKILL.md directly to `path`.
-- `type: git-file` → write to `repo/file`; apply any `strip` substitutions before writing; then `git add`, `git commit`, `git push`.
+- `type: git-file` → write to `repo/file`; if `strip` list present, replace those strings with
+  `[NEXUS-only — see private distribution]` before writing the public copy; then `git add`, `git commit`, `git push`.
 Log each push outcome to `skill-evolution.log`.
 
 ---
@@ -1182,15 +1198,17 @@ Adjust agent count:
 | 2.0 | Security Review UI |
 | 2.1 | Overseer Protocol, Goal Declaration |
 | 3.0 | SOLO mode, end-of-session self-improvement |
-| 4.0 | User profile, NEXUS mode, auto-sync |
+| 4.0 | User profile, [NEXUS-only — see private distribution], auto-sync |
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
 | 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
 | 7.4 | **Phase 0 Repo Health Check (MANDATORY BLOCKER)** — untracked file audit, import resolution check, deployment parity check. Simulation is blocked if untracked code files exist. Fixes root cause of missed bugs from incomplete repos. |
-| 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; NEXUS mode gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
+| 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; [NEXUS-only — see private distribution] gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
 | 7.6 | **Plain-English Skill Growth Narrative** — after every session Phase 7d prints what was learned, what got stronger, what was retired, and running lifetime stats in plain language anyone can read; appends an entry to `evolution-timeline.md` (a persistent diary of the skill's growth); `/redblue history` command to replay the full timeline; storage layout updated with new files. |
+| 7.8 | **3 patterns graduated** (session redblue-2026-05-15-03) — `Live API credentials in .env in git-tracked repo`, `os.environ.get with literal-string fallback for secrets`, `Frontend page references not_yet_implemented backend`. EVOLVED PATTERNS: 10 → 13. |
+| 7.7 | **2 patterns graduated** (session redblue-2026-05-15-02) — `Credentials in Git-Tracked .env` [security] and `Stub Backend for Advertised Feature` [product] reached 3 sessions and were added to EVOLVED PATTERNS. LV-013 also reached 3 sessions but is a duplicate of the existing `Hardcoded Secret Fallback` pattern (corroborated, no new block). EVOLVED PATTERNS: 8 → 10. |
 
 ---
 
@@ -1257,6 +1275,20 @@ Adjust agent count:
 **Domain:** functional  **Sessions:** 3+  **Status:** active
 **Rule:** Every list or data-driven UI component must handle the empty/null/zero-items case.
 **Check for:** `.map(` or list renders without a preceding null/empty check and fallback
+
+---
+
+### PATTERN: Credentials in Git-Tracked .env
+**Domain:** security  **Sessions:** 3+  **Status:** active
+**Rule:** A live .env in a git-tracked repo means credentials are in history — unrevocable by edit. Rotate + filter-repo + force-push + gitignore.
+**Check for:** `git ls-files | grep -x .env` returns a result; confirm with `git log --all --full-history -- .env`
+
+---
+
+### PATTERN: Stub Backend for Advertised Feature
+**Domain:** product  **Sessions:** 3+  **Status:** active
+**Rule:** Never ship a frontend entrypoint for a backend route that returns a placeholder. Implement the route or hide the UI until it is real.
+**Check for:** `grep -rE 'not_yet_implemented|coming_soon|TODO: implement' server/routers/` cross-referenced against PRD/UI references
 
 ---
 
