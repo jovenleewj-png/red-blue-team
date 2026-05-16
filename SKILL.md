@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "8.0"
+version: "8.1"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -60,7 +60,7 @@ CC BY-NC-ND 4.0 · https://creativecommons.org/licenses/by-nc-nd/4.0/
 
 Red-Blue Loop is not a security scanner. It is a **universal quality simulation loop** — a red team that thinks about every dimension of how something can go wrong, and a blue team that fixes it in simulation before anything touches your real work.
 
-It covers **eight testing domains**. The active domains for any session are auto-detected from what's in scope:
+It covers **nine testing domains**. The active domains for any session are auto-detected from what's in scope:
 
 | # | Domain | Red Team asks | Blue Team proposes | Auto-detects when |
 |---|--------|--------------|-------------------|-------------------|
@@ -72,6 +72,7 @@ It covers **eight testing domains**. The active domains for any session are auto
 | 📊 | **Eval** | Do evaluation harnesses measure what they claim? Are results trustworthy? | Benchmark fixes, metric corrections, eval leakage detection | `eval/`, `benchmark/`, `evals.py`, test harnesses |
 | 🟡 | **Functional** | Does the code actually do what it's supposed to? | Bug fixes, edge case handling, error paths | Any codebase |
 | 🔵 | **UI / UX** | Is this product logical, intuitive, and user-friendly? | Flow improvements, missing feedback, confusing interactions | Web frontend, `frontend_url` in scope config |
+| 🟢 | **Product** | Does the product deliver on its stated purpose end-to-end? | Feature completeness fixes, user journey corrections, acceptance criteria gaps | Any codebase (always active) |
 
 Every scan activates all relevant domains simultaneously. A finding can be a SQL injection, a misconfigured Dockerfile, an AI agent that silently ignores tool errors, a skill that doesn't handle its edge case, or a button with no loading state — all are first-class issues.
 
@@ -186,13 +187,17 @@ and then to the skill's own `## EVOLVED PATTERNS` section.
 
 ## Scope Configuration
 
+> **REQUIRED: Replace this table with your own systems before first use.**
+> Each row is a system you want audited. Add/remove rows as needed.
+> Leave Frontend URL blank if no web UI. Leave Remote access blank for local systems.
+
 | System | Path | Frontend URL | Remote access |
 |--------|------|-------------|---------------|
-| Your primary machine | `/your/nexus/path/` | `http://localhost:PORT` | — |
-| Nexus skills | `/Users/jovenleeweijun/.claude/skills/` | — | — |
-| Your remote server | `/your/project/path/` | `http://YOUR_REMOTE_HOST:5050` | `ssh your-remote` |
+| *Your primary project* | `/path/to/your/project/` | `http://localhost:PORT` | — |
+| *Your remote server (optional)* | `/path/on/remote/` | `http://REMOTE_HOST:PORT` | `ssh your-remote` |
 
-**Remote health check:** `ssh your-remote "git -C /your/project/path status --short | grep '^\?\?'"`
+**Remote health check (optional):** `ssh your-remote "git -C /path/on/remote status --short | grep '^\?\?'"`
+*(Run this to check if your remote server has untracked files not in the repo.)*
 
 ---
 
@@ -204,17 +209,18 @@ and then to the skill's own `## EVOLVED PATTERNS` section.
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
 2. Detect mode (NEXUS / SWARM / SOLO).
-   **2b. NEXUS mode — load Hermes memory** (if `[NEXUS-only — see private distribution]` available):
+   **2b. [NEXUS mode only — skip in SOLO/SWARM] Load Hermes memory** (if `[NEXUS-only — see private distribution]` available):
    ```
    [NEXUS-only — see private distribution].recall("redblue-sessions", limit=5)  → inject prior session summaries into scan context
    [NEXUS-only — see private distribution].recall("redblue-patterns")           → augment live-patterns buffer with cross-session insights
    ```
    This gives iteration 1 the benefit of everything learned in prior sessions, not just EVOLVED PATTERNS.
+   *SOLO/SWARM users: skip this step. Prior session context comes from EVOLVED PATTERNS instead.*
 3. Load user profile (Phase 0b).
 4. Load `## EVOLVED PATTERNS` from this file.
 5. **Create `~/.redblue/live-patterns.json`** (empty buffer for this session's real-time learning).
    **5b. Initialise persistent files** if not present:
-   - `~/.redblue/sync-remotes.json` → `{ "remotes": [] }`
+   - `~/.redblue/sync-remotes.json` → `[]`  *(top-level array — see Sync-remotes format below)*
    - `~/.redblue/evolution-timeline.md` → create with header:
      ```markdown
      # Red-Blue Loop — Evolution Timeline
@@ -225,20 +231,22 @@ and then to the skill's own `## EVOLVED PATTERNS` section.
      ```
    - `~/.redblue/learning-vault.json` → `[]`
 
-   **Sync-remotes format** — `~/.redblue/sync-remotes.json`:
+   **Sync-remotes format** — `~/.redblue/sync-remotes.json` is a **top-level JSON array**:
    ```json
-   { "remotes": [] }
+   []
    ```
-   Supported format per remote entry:
+   Once populated, it looks like:
    ```json
    [
-     { "name": "nexus",  "type": "local-file", "path": "~/your-sync-target/red-blue-loop.md" },
-     { "name": "public", "type": "git-file",   "repo": "~/Desktop/red-blue-team", "file": "SKILL.md",
+     { "name": "private", "type": "local-file", "path": "~/your-sync-target/red-blue-loop.md" },
+     { "name": "public",  "type": "git-file",   "repo": "~/your-public-repo", "file": "SKILL.md",
        "strip": ["private_tool_name_1", "private_tool_name_2"] }
    ]
    ```
-   `type: git-file` remotes with `strip`: apply text substitutions before writing public copy, then commit+push.
+   `type: local-file` — copy SKILL.md to path.
+   `type: git-file` with `strip` — replace listed strings with `[private]` before writing; then `git add`, `git commit`, `git push`.
    Populate once; Phase 7h auto-pushes after every evolution run.
+   > **Note:** Do NOT wrap in `{ "remotes": [...] }` — the file must be a bare array at the top level.
 6. **⛔ REPO HEALTH CHECK — MANDATORY BLOCKER. Run before creating simulation.**
 
    **6a — Untracked file audit:**
@@ -1277,6 +1285,7 @@ python3 ~/.redblue/runner/runner.py /path/to/project --round-id redblue-2026-01-
 | 7.7 | **2 patterns graduated** (session redblue-2026-05-15-02) — `Credentials in Git-Tracked .env` [security] and `Stub Backend for Advertised Feature` [product] reached 3 sessions and were added to EVOLVED PATTERNS. LV-013 also reached 3 sessions but is a duplicate of the existing `Hardcoded Secret Fallback` pattern (corroborated, no new block). EVOLVED PATTERNS: 8 → 10. |
 | 7.8 | **3 patterns graduated** (session redblue-2026-05-15-03) — `Live API credentials in .env in git-tracked repo`, `os.environ.get with literal-string fallback for secrets`, `Frontend page references not_yet_implemented backend`. EVOLVED PATTERNS: 10 → 13. |
 | 8.0 | **Adversarial simulation engine** — Python runner (`~/.redblue/runner/`) takes over loop orchestration. Signal-file protocol: runner writes JSON templates, Claude fills them, runner detects mtime change and advances state. Non-negotiable loop rules now enforced by code: never stop mid-cycle, at least one full cycle before session ends, all fixes validated inside sandbox via path-check before apply, per-cycle quality-score delta recorded. Convergence criterion tightened: requires zero critical/high AND zero regressions in 2 consecutive cycles (previously: zero crit/high only). 28 passing tests. Runner CLI: `python3 ~/.redblue/runner/runner.py {path} --mode {full\|once\|report-only\|evolve} --duration {min}`. |
+| 8.1 | **Self-audit cycle (session redblue-self-2026-05-16-R1)** — Skill scanned itself. 2 cycles to convergence. 19 findings → 4 remaining (all low/medium). Fixed: unhandled exceptions skip report/graduation (FN-001); git worktree fallback missing branch arg (FN-002); non-atomic vault write loses data on crash (FN-003); round ID collision overwrites same-day sessions (FN-004); CONVERGENCE_QUALITY_THRESHOLD defined but never used (FN-005); Telegram never sent from runner (FN-006); Phase 0 health check never implemented — hard_blocker never set (FN-007); same-day vault backups overwrite each other (FN-008); fixed-sleep race condition reading Claude's JSON output (FN-009); apply_fix has no backup before write (FN-010); Telegram message showed pre-fix counts not post-fix (FN-011); load_vault crashes on legacy `{patterns:[...]}` format (FN-012); SKILL.md: domain count said 8 not 9 (SKL-003); sync-remotes format inconsistency object vs array (SKL-002); Scope config had no "REPLACE THIS" warning for new users (SKL-005); NEXUS steps had no explicit SOLO/SWARM skip guards (SKL-001). Score 0 → 91. |
 
 ---
 
