@@ -7,6 +7,23 @@
 
 ---
 
+## Which file do I need?
+
+| I use… | Download this file |
+|--------|-------------------|
+| **Claude Code** (CLI / desktop / VS Code) | [`SKILL.md`](SKILL.md) |
+| **OpenAI Codex CLI** | [`AGENTS.md`](AGENTS.md) |
+| **ChatGPT Custom GPT** | [`GPT-SYSTEM-PROMPT.md`](GPT-SYSTEM-PROMPT.md) |
+| **Any other LLM / terminal agent** | [`SKILL.md`](SKILL.md) |
+
+**Claude Code** — copy `SKILL.md` to your skills directory, then type `/redblue` to start.
+
+**Codex CLI** — copy `AGENTS.md` to `~/.codex/AGENTS.md` (or your project root), then type `/redblue`.
+
+**ChatGPT Custom GPT** — open `GPT-SYSTEM-PROMPT.md`, copy the block between the `=== SYSTEM PROMPT START ===` and `=== SYSTEM PROMPT END ===` markers, and paste it into your Custom GPT's Instructions field.
+
+---
+
 ## For Everyone: What is this?
 
 Imagine hiring a quality team that works in a parallel universe — a perfect copy of your codebase where they can try fixes, break things, rebuild them, and check if their fixes introduced new problems. Only after they've converged on a complete solution do they present it to you for a final sign-off. Your real code is never touched until you say so.

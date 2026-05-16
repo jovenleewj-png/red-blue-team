@@ -10,7 +10,7 @@ description: >
   a full report goes to the approval UI. Nothing lands in real code until the
   user decides. Compatible with Claude Code, OpenAI Codex CLI, and ChatGPT
   Custom GPTs — see AGENTS.md and GPT-SYSTEM-PROMPT.md for other platforms.
-version: "7.6"
+version: "8.0"
 author: Joven Lee Wei Jun
 linkedin: https://www.linkedin.com/in/jovenleeweijun/
 x: https://x.com/jovenleeweijun
@@ -125,7 +125,7 @@ as the loop runs.
 
 Auto-detect:
 ```
-[NEXUS-only — see private distribution] available       → [NEXUS-only — see private distribution]
+[NEXUS-only — see private distribution] available       → NEXUS mode
 delegate_task or parallel
   tool calls available       → SWARM mode
 else                         → SOLO mode
@@ -186,11 +186,13 @@ and then to the skill's own `## EVOLVED PATTERNS` section.
 
 ## Scope Configuration
 
-Replace this table with your own system paths. See `scope.example.yaml` for a template.
+| System | Path | Frontend URL | Remote access |
+|--------|------|-------------|---------------|
+| Your primary machine | `/your/nexus/path/` | `http://localhost:PORT` | — |
+| Nexus skills | `/Users/jovenleeweijun/.claude/skills/` | — | — |
+| Your remote server | `/your/project/path/` | `http://YOUR_REMOTE_HOST:5050` | `ssh your-remote` |
 
-| System | Path | Has UI? |
-|--------|------|---------|
-| *(add your systems here)* | | |
+**Remote health check:** `ssh your-remote "git -C /your/project/path status --short | grep '^\?\?'"`
 
 ---
 
@@ -202,7 +204,7 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
 
 1. Assign `round_id`: `redblue-YYYY-MM-DD-RN`.
 2. Detect mode (NEXUS / SWARM / SOLO).
-   **2b. [NEXUS-only — see private distribution] — load Hermes memory** (if `[NEXUS-only — see private distribution]` available):
+   **2b. NEXUS mode — load Hermes memory** (if `[NEXUS-only — see private distribution]` available):
    ```
    [NEXUS-only — see private distribution].recall("redblue-sessions", limit=5)  → inject prior session summaries into scan context
    [NEXUS-only — see private distribution].recall("redblue-patterns")           → augment live-patterns buffer with cross-session insights
@@ -230,9 +232,9 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
    Supported format per remote entry:
    ```json
    [
-     { "name": "nexus",  "type": "local-file", "path": "~/Desktop/Nexus/skills/red-blue-loop.md" },
+     { "name": "nexus",  "type": "local-file", "path": "~/your-sync-target/red-blue-loop.md" },
      { "name": "public", "type": "git-file",   "repo": "~/Desktop/red-blue-team", "file": "SKILL.md",
-       "strip": ["[NEXUS-only — see private distribution]", "[NEXUS-only — see private distribution]"] }
+       "strip": ["private_tool_name_1", "private_tool_name_2"] }
    ]
    ```
    `type: git-file` remotes with `strip`: apply text substitutions before writing public copy, then commit+push.
@@ -278,6 +280,41 @@ Replace this table with your own system paths. See `scope.example.yaml` for a te
    ```
 8. Initialise `~/.redblue/rounds/{round_id}.json`.
 9. Record `started_at`. Session runs until `started_at + time_limit` or convergence.
+
+**→ Hand off to the Python runner (v8.0+):**
+
+From v8.0 onward, the loop is driven by the Python runner — not by Claude manually iterating through phases. Start the runner in a terminal:
+
+```bash
+python3 ~/.redblue/runner/runner.py {project_path} \
+  --mode {full|once|report-only} \
+  --duration {minutes} \
+  --round-id {round_id}
+```
+
+The runner:
+- Creates the sandbox, manages the session clock, enforces the non-negotiable loop rules
+- Writes **signal files** at each step and waits for Claude to fill them in
+- Guarantees: never stop mid-cycle; at least one complete cycle before session ends
+- Handles convergence check (zero crit/high open AND zero regressions in last 2 consecutive cycles)
+
+**Claude's role in each cycle:** watch for signal files and fill them with intelligence:
+
+| Signal file | What Claude writes | Phase equivalent |
+|-------------|-------------------|-----------------|
+| `~/.redblue/rounds/{round_id}/findings_{NNN}.json` | Red team findings JSON array | Phase 1 |
+| `~/.redblue/rounds/{round_id}/fixes_{NNN}.json` | Blue team fix proposals JSON array | Phase 2 |
+| `~/.redblue/rounds/{round_id}/findings_{NNN}_retest.json` | Re-scan findings after fixes | Phase 3 |
+
+Each file starts as a template with schema comments. Replace the entire file with the real JSON array to signal completion to the runner (detected by mtime change).
+
+**NON-NEGOTIABLE LOOP RULES (enforced by runner code, not convention):**
+- Session never ends after zero completed cycles
+- Session never stops mid-cycle — runner waits for retest findings before checking time
+- Blue team fixes are only written inside the sandbox (path validation rejects entire batch if any path escapes)
+- Each cycle produces a complete JSON record with before/after quality score delta
+
+When the runner finishes, proceed to Phase 4 (report) and Phase 5 (approval UI).
 
 ---
 
@@ -789,30 +826,38 @@ remaining        = findings from I(N-1) still present
 newly_introduced = findings in I(N) not in I(N-1)
 ```
 
-**Convergence check:**
+**Convergence check (v8.0 — enforced by runner):**
 ```
 open_critical_high = [f for f in remaining + newly_introduced
                       if f.severity in ["critical", "high"]]
 
-if len(open_critical_high) == 0:
-    → CONVERGED → Phase 4
+CONVERGED when ALL of:
+  - open_critical_high == 0
+  - last 2 consecutive cycles have zero new regressions
+  - at least 2 cycles have been completed
+
+if CONVERGED:
+    → Phase 4
 
 else if time_elapsed >= time_limit:
-    → TIME LIMIT reached — but always complete the current iteration fully.
-      Do not stop mid-round. Finish Phase 2 and Phase 3 for the current
-      iteration so every open finding has a blue-team proposal and the
-      delta is consistent.  Then → Phase 4.
-      This ensures the final report has no half-applied fixes or
-      inconsistent state — loose ends are always tied up before handoff.
+    → TIME LIMIT reached — runner completes the current cycle in full
+      (all three signal files filled) before exiting.
+      Time is checked BEFORE starting a new cycle, never mid-cycle.
+      Then → Phase 4.
 
 else:
-    → loop back to Phase 1
+    → loop back to Phase 1 (runner writes next findings template)
 ```
 
-**Time limit is checked BEFORE starting a new iteration, not during one.**
-If the clock expires while an iteration is running, that iteration completes
-in full (Phase 1 → real-time learning → Phase 2 → Phase 3 → delta).
+**Time limit is checked BEFORE starting a new cycle, not during one.**
+If the clock expires while a cycle is running, that cycle completes
+in full (findings → fixes → retest → delta).
 Only then does the loop exit to Phase 4.
+
+**In the runner signal-file protocol:**
+The runner writes `findings_{NNN}_retest.json` template, then waits.
+When Claude fills it in, the runner computes the delta, checks convergence,
+saves the cycle record, and either starts cycle N+1 or exits to Phase 4.
 
 **Status update after each iteration:**
 ```
@@ -1091,7 +1136,7 @@ After printing the narrative, append an entry to `~/.redblue/evolution-timeline.
 This file is append-only and becomes a readable diary of how the skill has evolved.
 Run `/redblue history` to display it at any time.
 
-Increment patch version in frontmatter: `7.4` → `7.5`, etc.
+Increment patch version in frontmatter: `8.0` → `8.1`, etc.
 Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session {round_id}`
 
 **7e — Fix the workflow itself:**
@@ -1106,7 +1151,7 @@ Commit message: `skill: red-blue-loop {old} → {new} — {N} patterns, session 
 - Stack signature (from file paths of approved findings)
 - Domain priorities (from approval rates per domain)
 
-**7g — [NEXUS-only — see private distribution]: Hermes memory + skill management:**
+**7g — NEXUS mode: Hermes memory + skill management:**
 
 *Memory (Hermes agent):*
 Save session summary so future sessions start with full context:
@@ -1165,6 +1210,7 @@ Adjust agent count:
 
 ## Invocation
 
+**Slash commands (Claude Code):**
 ```
 /redblue                   full scope — auto-detect active domains, loop until convergence or 1 hour
 /redblue {subsystem}       single subsystem, all active domains
@@ -1188,6 +1234,27 @@ Adjust agent count:
 /redblue history           show evolution-timeline.md — plain-English diary of how the skill has grown
 ```
 
+**Python runner CLI (v8.0 — start this in a separate terminal for automated loop management):**
+```bash
+# Full 60-minute adversarial loop (default)
+python3 ~/.redblue/runner/runner.py /path/to/project
+
+# Custom duration
+python3 ~/.redblue/runner/runner.py /path/to/project --duration 30
+
+# Exactly one Red→Blue→Retest cycle, then stop
+python3 ~/.redblue/runner/runner.py /path/to/project --mode once
+
+# Red scan + report only, skip blue team
+python3 ~/.redblue/runner/runner.py /path/to/project --mode report-only
+
+# Run pattern graduation only (no new scan)
+python3 ~/.redblue/runner/runner.py /path/to/project --mode evolve
+
+# Override session ID
+python3 ~/.redblue/runner/runner.py /path/to/project --round-id redblue-2026-01-01-R2
+```
+
 ---
 
 ## Changelog
@@ -1198,17 +1265,18 @@ Adjust agent count:
 | 2.0 | Security Review UI |
 | 2.1 | Overseer Protocol, Goal Declaration |
 | 3.0 | SOLO mode, end-of-session self-improvement |
-| 4.0 | User profile, [NEXUS-only — see private distribution], auto-sync |
+| 4.0 | User profile, NEXUS mode, auto-sync |
 | 5.0 | Simulation loop architecture — blue team works in sandbox |
 | 6.0 | **Real-time in-loop learning** (live-patterns.json between every iteration); expanded scope beyond security to functional QA + UI/UX; three-domain red team; domain-aware user profile |
 | 6.1 | Implicit digital acceptance on first use (no I AGREE required); time limit always completes current iteration before stopping; LinkedIn + X social links |
 | 7.0 | **Nine-domain scope** — added Agent, Skill, Infra, Tech Stack, Eval, Product testing alongside Security, Functional, UI/UX; domain auto-detection from project structure; per-domain invocation flags; domain-aware user profile and reporting |
 | 7.1 | **Multi-platform support** — AGENTS.md for OpenAI Codex CLI; GPT-SYSTEM-PROMPT.md for ChatGPT Custom GPTs; platform compatibility table in README and SKILL.md |
 | 7.4 | **Phase 0 Repo Health Check (MANDATORY BLOCKER)** — untracked file audit, import resolution check, deployment parity check. Simulation is blocked if untracked code files exist. Fixes root cause of missed bugs from incomplete repos. |
-| 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; [NEXUS-only — see private distribution] gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
+| 7.5 | **Self-evolution fixes + NEXUS Hermes memory + skill management** — Phase 7b write guard (backup, duplicate check, marker verify); Phase 7c prunes dormant/false-positive patterns from SKILL.md; Phase 7d Evolution Report + version auto-bump; sync-remotes.json initialised in Phase 0; vault stats in Phase 4 report; NEXUS mode gains Hermes cross-session memory, skill scaffolding from vault patterns, and skill enhancement for existing skills. |
 | 7.6 | **Plain-English Skill Growth Narrative** — after every session Phase 7d prints what was learned, what got stronger, what was retired, and running lifetime stats in plain language anyone can read; appends an entry to `evolution-timeline.md` (a persistent diary of the skill's growth); `/redblue history` command to replay the full timeline; storage layout updated with new files. |
-| 7.8 | **3 patterns graduated** (session redblue-2026-05-15-03) — `Live API credentials in .env in git-tracked repo`, `os.environ.get with literal-string fallback for secrets`, `Frontend page references not_yet_implemented backend`. EVOLVED PATTERNS: 10 → 13. |
 | 7.7 | **2 patterns graduated** (session redblue-2026-05-15-02) — `Credentials in Git-Tracked .env` [security] and `Stub Backend for Advertised Feature` [product] reached 3 sessions and were added to EVOLVED PATTERNS. LV-013 also reached 3 sessions but is a duplicate of the existing `Hardcoded Secret Fallback` pattern (corroborated, no new block). EVOLVED PATTERNS: 8 → 10. |
+| 7.8 | **3 patterns graduated** (session redblue-2026-05-15-03) — `Live API credentials in .env in git-tracked repo`, `os.environ.get with literal-string fallback for secrets`, `Frontend page references not_yet_implemented backend`. EVOLVED PATTERNS: 10 → 13. |
+| 8.0 | **Adversarial simulation engine** — Python runner (`~/.redblue/runner/`) takes over loop orchestration. Signal-file protocol: runner writes JSON templates, Claude fills them, runner detects mtime change and advances state. Non-negotiable loop rules now enforced by code: never stop mid-cycle, at least one full cycle before session ends, all fixes validated inside sandbox via path-check before apply, per-cycle quality-score delta recorded. Convergence criterion tightened: requires zero critical/high AND zero regressions in 2 consecutive cycles (previously: zero crit/high only). 28 passing tests. Runner CLI: `python3 ~/.redblue/runner/runner.py {path} --mode {full\|once\|report-only\|evolve} --duration {min}`. |
 
 ---
 
